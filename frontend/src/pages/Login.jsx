@@ -8,12 +8,12 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
-  const [role, setRole] = useState('student'); // 'student' | 'admin'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
+  const showDemoLogin = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +31,7 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      const res = await register(username, email, password, role);
+      const res = await register(username, email, password);
       if (!res.success) {
         setError(res.message);
       }
@@ -175,36 +175,6 @@ const Login = () => {
             </div>
           </div>
 
-          {!isLogin && (
-            <div>
-              <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5 tracking-wider">Role Profile</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setRole('student')}
-                  className={`py-2 text-center text-xs font-bold rounded-xl border transition-all duration-200 cursor-pointer ${
-                    role === 'student'
-                      ? 'bg-brand-500/10 border-brand-500 text-brand-600 dark:text-brand-400 font-bold'
-                      : 'border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-955 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-                >
-                  Student
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('admin')}
-                  className={`py-2 text-center text-xs font-bold rounded-xl border transition-all duration-200 cursor-pointer ${
-                    role === 'admin'
-                      ? 'bg-brand-500/10 border-brand-500 text-brand-600 dark:text-brand-400 font-bold'
-                      : 'border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-955 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-                >
-                  Admin Staff
-                </button>
-              </div>
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
@@ -215,51 +185,31 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Mock Google Login */}
-        <div className="relative my-6 flex items-center justify-center">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200 dark:border-brand-800"></div>
+        {showDemoLogin && (
+          <div className="mt-6 pt-5 border-t border-slate-200 dark:border-brand-850/80">
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 mb-2">Local Demo Accounts</h4>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleQuickLogin('priya@iitr.ac.in', 'student123')}
+                className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-brand-950 dark:hover:bg-brand-900/80 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-brand-800 hover:border-brand-500/30 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-white transition-all capitalize cursor-pointer"
+              >
+                Student (Priya)
+              </button>
+              <button
+                onClick={() => handleQuickLogin('sanjay@iitr.ac.in', 'student123')}
+                className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-brand-950 dark:hover:bg-brand-900/80 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-brand-800 hover:border-brand-500/30 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-white transition-all capitalize cursor-pointer"
+              >
+                Student (Sanjay)
+              </button>
+              <button
+                onClick={() => handleQuickLogin('admin@iitr.ac.in', 'admin123')}
+                className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-brand-950 dark:hover:bg-brand-900/80 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-brand-800 hover:border-brand-500/30 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-white transition-all capitalize cursor-pointer"
+              >
+                Staff (Admin)
+              </button>
+            </div>
           </div>
-          <span className="relative px-3.5 bg-white dark:bg-brand-900 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">or continue with</span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            setEmail('sanjay@iitr.ac.in');
-            setPassword('student123');
-            addToast('Google Auth Mocked', 'Pre-filling Google Student account', 'sp_change');
-          }}
-          className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-brand-950 dark:hover:bg-brand-900/60 border border-slate-200 dark:border-brand-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer"
-        >
-          <span className="text-sm">🌐</span>
-          <span>Google Placeholder</span>
-        </button>
-
-        {/* Quick Demo Login pre-fills */}
-        <div className="mt-6 pt-5 border-t border-slate-200 dark:border-brand-850/80">
-          <h4 className="text-[10px] font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 mb-2">Quick Demo Accounts</h4>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleQuickLogin('priya@iitr.ac.in', 'student123')}
-              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-brand-950 dark:hover:bg-brand-900/80 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-brand-800 hover:border-brand-500/30 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-white transition-all capitalize cursor-pointer"
-            >
-              👩‍🎓 Student (Priya)
-            </button>
-            <button
-              onClick={() => handleQuickLogin('sanjay@iitr.ac.in', 'student123')}
-              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-brand-950 dark:hover:bg-brand-900/80 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-brand-800 hover:border-brand-500/30 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-white transition-all capitalize cursor-pointer"
-            >
-              👨‍🎓 Student (Sanjay)
-            </button>
-            <button
-              onClick={() => handleQuickLogin('admin@iitr.ac.in', 'admin123')}
-              className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-brand-950 dark:hover:bg-brand-900/80 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-brand-800 hover:border-brand-500/30 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-white transition-all capitalize cursor-pointer"
-            >
-              👮‍♂️ Staff (Admin)
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Forgot Password Modal Overlay */}

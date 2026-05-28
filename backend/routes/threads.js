@@ -5,11 +5,15 @@ const { authMiddleware } = require('../middleware/authMiddleware');
 const { checkSemanticSimilarity, scoreContentModeration } = require('../services/aiService');
 const { updateReputation } = require('../services/reputation');
 
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // GET /api/threads - List threads with filters (category, search, sorting)
 router.get('/', async (req, res) => {
   try {
     const { category, search, sort, isOfficial } = req.query;
-    let query = { status: { $ne: 'spam' }, isMerged: false };
+    let query = { status: 'active', isMerged: false };
 
     if (category && category !== 'All') {
       query.category = category;
@@ -20,9 +24,10 @@ router.get('/', async (req, res) => {
       query.isOfficial = false;
     }
     if (search) {
+      const safeSearch = escapeRegex(String(search).trim().slice(0, 100));
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { body: { $regex: search, $options: 'i' } }
+        { title: { $regex: safeSearch, $options: 'i' } },
+        { body: { $regex: safeSearch, $options: 'i' } }
       ];
     }
 
@@ -35,7 +40,12 @@ router.get('/', async (req, res) => {
       sortCriteria = { repliesCount: -1 };
     }
 
-    const threads = await FAQThread.find(query).sort(sortCriteria);
+    const limit = isOfficial === 'true' ? 250 : 100;
+    let threadQuery = FAQThread.find(query).sort(sortCriteria).limit(limit);
+    if (isOfficial === 'true') {
+      threadQuery = threadQuery.select('title category isOfficial');
+    }
+    const threads = await threadQuery;
     res.json(threads);
   } catch (error) {
     console.error('Fetch threads error:', error.message);
@@ -63,7 +73,7 @@ router.post('/check-duplicate', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const thread = await FAQThread.findById(req.params.id);
-    if (!thread) {
+    if (!thread || thread.status !== 'active' || thread.isMerged) {
       return res.status(404).json({ message: 'Thread not found' });
     }
     res.json(thread);
@@ -82,6 +92,8 @@ router.post('/create', authMiddleware, async (req, res) => {
     if (!title || !body) {
       return res.status(400).json({ message: 'Title and body are required' });
     }
+    title = String(title).trim().slice(0, 180);
+    body = String(body).trim().slice(0, 4000);
 
     // Context-aware Duplicate Prevention
     const duplicates = await checkSemanticSimilarity(title, category);
@@ -185,6 +197,9 @@ router.post('/:id/metoo', authMiddleware, async (req, res) => {
 // GET /api/threads/:id/answers
 router.get('/:id/answers', async (req, res) => {
   try {
+    const thread = await FAQThread.findOne({ _id: req.params.id, status: 'active', isMerged: false }).select('_id');
+    if (!thread) return res.status(404).json({ message: 'Thread not found' });
+
     const answers = await Answer.find({ threadId: req.params.id });
     
     const answerList = await Promise.all(answers.map(async (ans) => {
@@ -218,6 +233,9 @@ router.post('/:id/answers/create', authMiddleware, async (req, res) => {
   try {
     const thread = await FAQThread.findById(req.params.id);
     if (!thread) return res.status(404).json({ message: 'Thread not found' });
+    if (thread.status !== 'active' || thread.isMerged) {
+      return res.status(400).json({ message: 'Replies are unavailable for this thread' });
+    }
 
     // Block if verified answer exists
     const verifiedAnswer = await Answer.findOne({ threadId: thread._id, isVerified: true });

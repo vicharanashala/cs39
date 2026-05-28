@@ -10,7 +10,9 @@ router.get('/:userId', authMiddleware, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // 1. Raised questions (FAQ threads authored by user)
-    const rawRaisedThreads = await FAQThread.find({ author: targetUserId, status: { $ne: 'spam' } });
+    const mayViewPrivate = req.user.role === 'admin' || req.user._id.toString() === targetUserId;
+    const visibleStatus = mayViewPrivate ? { $ne: 'spam' } : 'active';
+    const rawRaisedThreads = await FAQThread.find({ author: targetUserId, status: visibleStatus });
     const raisedThreads = await Promise.all(rawRaisedThreads.map(async (thread) => {
       const answers = await Answer.find({ threadId: thread._id });
       return {
@@ -33,7 +35,7 @@ router.get('/:userId', authMiddleware, async (req, res) => {
     const resolvedQuestions = rawRaisedThreads.filter(t => resolvedThreadIds.includes(t._id.toString()));
 
     // 4. Upvoted questions
-    const upvotedQuestions = await FAQThread.find({ upvotes: targetUserId, status: { $ne: 'spam' } });
+    const upvotedQuestions = await FAQThread.find({ upvotes: targetUserId, status: 'active' });
 
     // 5. Activity timeline (SP transactions list)
     const activityTimeline = await SPTransaction.find({ userId: targetUserId }).sort({ timestamp: -1 });

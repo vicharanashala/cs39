@@ -28,6 +28,26 @@ const SYNONYMS = {
   'team': ['group', 'partner', 'teammate', 'member']
 };
 
+const DISPLAY_GROUPS = [
+  { title: 'Getting Started', categories: ['Internship', 'Selection Process', 'Announcements'] },
+  { title: 'Documents & Dates', categories: ['Certificates', 'Deadlines', 'Payments'] },
+  { title: 'Learning & Work', categories: ['Attendance', 'Assignments', 'Mentorship', 'Projects'] },
+  { title: 'Platform & Help', categories: ['Technical Issues', 'General Queries', 'Others'] }
+];
+
+function getDisplayGroup(category) {
+  return DISPLAY_GROUPS.find(group => group.categories.includes(category))?.title || 'Platform & Help';
+}
+
+function compactAnswer(text, maxLength = 360) {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (compact.length <= maxLength) return compact;
+  const clipped = compact.slice(0, maxLength);
+  const lastSentence = clipped.lastIndexOf('. ');
+  const safeEnd = lastSentence > 140 ? lastSentence + 1 : clipped.lastIndexOf(' ');
+  return `${compact.slice(0, safeEnd)}...`;
+}
+
 function tokenize(text) {
   return text
     .toLowerCase()
@@ -261,7 +281,7 @@ function computeSemanticScore(queryTokens, queryClean, thread, queryCategory) {
  */
 async function checkSemanticSimilarity(newTitle, category = null) {
   try {
-    const query = { status: { $ne: 'spam' }, isMerged: false };
+    const query = { status: 'active', isMerged: false };
     if (category) {
       query.category = category;
     }
@@ -358,7 +378,9 @@ function scoreContentModeration(text, title = '') {
  */
 async function retrieveRAGResponse(userQuery) {
   try {
-    const threads = await FAQThread.find({ status: 'active', isMerged: false });
+    const threads = await FAQThread.find({ status: 'active', isMerged: false })
+      .select('title body category')
+      .lean();
     
     // Spelling correction and category detection
     const vocab = buildVocabulary(threads);
@@ -377,36 +399,32 @@ async function retrieveRAGResponse(userQuery) {
     const queryClean = correctedQuery.toLowerCase().replace(/[^\w\s]/g, '').trim();
     const queryCategory = classifyQueryCategory(correctedQuery);
     
-    let bestMatch = null;
-    let highestScore = 0;
-
-    threads.forEach(thread => {
-      const score = computeSemanticScore(queryTokens, queryClean, thread, queryCategory);
-      if (score > highestScore) {
-        highestScore = score;
-        bestMatch = thread;
-      }
-    });
+    const rankedMatches = threads
+      .map(thread => ({
+        thread,
+        score: computeSemanticScore(queryTokens, queryClean, thread, queryCategory)
+      }))
+      .filter(match => match.score > 0.15)
+      .sort((left, right) => right.score - left.score);
+    const bestMatch = rankedMatches[0]?.thread || null;
+    const highestScore = rankedMatches[0]?.score || 0;
+    const suggestions = rankedMatches.slice(0, 2).map(match => ({
+      threadId: match.thread._id,
+      title: match.thread.title,
+      category: getDisplayGroup(match.thread.category),
+      confidence: Math.round(match.score * 100)
+    }));
 
     // Score threshold: 0.25 (lenient for fuzzy search match)
     if (bestMatch && highestScore > 0.25) {
-      const answers = await Answer.find({ threadId: bestMatch._id });
-      let chosenAnswer = null;
+      const chosenAnswer = await Answer.findOne({ threadId: bestMatch._id })
+        .sort({ isVerified: -1, isPinned: -1, createdAt: 1 })
+        .select('body')
+        .lean();
 
-      if (answers.length > 0) {
-        answers.sort((a, b) => {
-          if (a.isVerified && !b.isVerified) return -1;
-          if (!a.isVerified && b.isVerified) return 1;
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          return b.upvotes.length - a.upvotes.length;
-        });
-        chosenAnswer = answers[0];
-      }
-
-      const chatbotAnswer = chosenAnswer 
-        ? chosenAnswer.body 
-        : `It looks like the thread "${bestMatch.title}" matches your query, but there are no verified answers there yet. You can check it out or add your own thoughts!`;
+      const chatbotAnswer = chosenAnswer
+        ? compactAnswer(chosenAnswer.body)
+        : 'A related question exists, but it does not have an answer yet.';
 
       // Build spelling correction prefix if corrections were made
       let spellingCorrectionNotice = "";
@@ -416,10 +434,13 @@ async function retrieveRAGResponse(userQuery) {
       }
 
       return {
-        answer: `${spellingCorrectionNotice}Based on your question, I found a matching thread: **"${bestMatch.title}"** (Category: *${bestMatch.category}*).\n\n${chatbotAnswer}`,
+        answer: `${spellingCorrectionNotice}${chatbotAnswer}`,
         confidence: Math.round(highestScore * 100),
         threadId: bestMatch._id,
-        suggestThread: highestScore < 0.45 
+        category: getDisplayGroup(bestMatch.category),
+        sourceTitle: bestMatch.title,
+        suggestions,
+        suggestThread: highestScore < 0.45
       };
     }
 
@@ -431,9 +452,10 @@ async function retrieveRAGResponse(userQuery) {
     }
 
     return {
-      answer: `${spellingCorrectionNotice}I checked the IIT Ropar FAQ base, but couldn't find a high-confidence match for your query. We recommend creating a new FAQ thread in the community so other students or admins can help you!`,
+      answer: `${spellingCorrectionNotice}No confident answer found. Try a related FAQ or ask the community.`,
       confidence: Math.round(highestScore * 100),
       threadId: null,
+      suggestions,
       suggestThread: true
     };
   } catch (error) {

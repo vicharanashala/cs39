@@ -4,13 +4,26 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const createRateLimiter = require('../middleware/rateLimit');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_iit_ropar_2026_key_12345';
+const JWT_SECRET = process.env.JWT_SECRET;
+const authLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 15,
+  message: 'Too many authentication attempts. Please try again later.'
+});
+
+router.use(authLimiter);
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const username = String(req.body.username || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (username.length < 3 || username.length > 40 || !email || password.length < 8) {
+      return res.status(400).json({ message: 'Provide a valid email, username, and password of at least 8 characters' });
+    }
     
     // Check if user exists
     const userExists = await User.findOne({ $or: [{ email }, { username }] });
@@ -27,7 +40,7 @@ router.post('/register', async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      role: role || 'student'
+      role: 'student'
     });
 
     // Award initial badges
@@ -61,7 +74,11 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -98,14 +115,8 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/forgot-password (Simulated)
 router.post('/forgot-password', async (req, res) => {
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: 'No account with that email exists' });
-    }
-    
-    // In a real system, you'd send an email. For the prototype, we return a success status.
-    res.json({ message: 'Password reset link sent to registered email' });
+    // Keep the response non-enumerating until a mail-backed reset flow is configured.
+    res.json({ message: 'If an account exists, a password reset link will be sent' });
   } catch (error) {
     console.error('Forgot password error:', error.message);
     res.status(500).json({ message: 'Internal Server Error' });
@@ -113,48 +124,8 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // POST /api/auth/google (Mock Google Login Placeholder)
-router.post('/google', async (req, res) => {
-  try {
-    const { email, name, googleId } = req.body;
-    
-    let user = await User.findOne({ email });
-    
-    if (!user) {
-      // Create user if not exists
-      const randomPassword = Math.random().toString(36).slice(-8);
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(randomPassword, salt);
-      
-      user = new User({
-        username: name.toLowerCase().replace(/\s+/g, '') + Math.floor(100 + Math.random() * 900),
-        email,
-        password: hashedPassword,
-        role: 'student'
-      });
-      user.badges.push('Google Explorer');
-      await user.save();
-    }
-
-    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        spPoints: user.spPoints,
-        level: user.level,
-        trustScore: user.trustScore,
-        contributionRating: user.contributionRating,
-        badges: user.badges
-      }
-    });
-  } catch (error) {
-    console.error('Google auth error:', error.message);
-    res.status(500).json({ message: 'Google Authentication failed' });
-  }
+router.post('/google', (req, res) => {
+  res.status(501).json({ message: 'Google sign-in is unavailable until verified OAuth is configured' });
 });
 
 // GET /api/auth/me

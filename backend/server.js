@@ -1,10 +1,16 @@
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const backendEnvPath = path.join(__dirname, '.env');
+require('dotenv').config({
+  path: fs.existsSync(backendEnvPath) ? backendEnvPath : path.join(__dirname, '../.env')
+});
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 
 const connectDB = require('./config/db');
+const createRateLimiter = require('./middleware/rateLimit');
 const { User, FAQThread, Answer, Comment, SPTransaction, Notification } = require('./models/Schemas');
 
 // Import routes
@@ -14,12 +20,60 @@ const adminRoutes = require('./routes/admin');
 const profileRoutes = require('./routes/profile');
 const chatbotRoutes = require('./routes/chatbot');
 const notificationRoutes = require('./routes/notifications');
+const leaderboardRoutes = require('./routes/leaderboard');
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+function isLocalDevelopmentOrigin(origin) {
+  if (isProduction || !origin) return false;
+  try {
+    const { hostname, protocol } = new URL(origin);
+    return ['http:', 'https:'].includes(protocol)
+      && ['localhost', '127.0.0.1', '::1'].includes(hostname);
+  } catch (error) {
+    return false;
+  }
+}
 
 // App environment configurations
-app.use(cors());
-app.use(express.json());
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || isLocalDevelopmentOrigin(origin)) {
+      return callback(null, true);
+    }
+    console.warn('CORS rejected origin:', origin);
+    return callback(new Error(`Origin ${origin} not permitted by CORS policy`));
+  },
+  credentials: true
+}));
+app.use(express.json({ limit: '32kb' }));
+app.use('/api', createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 120,
+  message: 'Too many API requests. Please slow down.'
+}));
+
+app.get('/api/health', (req, res) => {
+  const dbReady = mongoose.connection.readyState === 1;
+  res.status(dbReady ? 200 : 503).json({
+    status: dbReady ? 'ok' : 'unavailable',
+    database: dbReady ? 'connected' : 'disconnected'
+  });
+});
 
 // Mount API Routes
 app.use('/api/auth', authRoutes);
@@ -28,6 +82,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 // Database Seeding Logic
 const seedDatabase = async () => {
@@ -235,20 +290,117 @@ const seedDatabase = async () => {
   }
 };
 
+const ensureDemoAccounts = async () => {
+  const salt = await bcrypt.genSalt(10);
+  const studentPassword = await bcrypt.hash('student123', salt);
+  const adminPassword = await bcrypt.hash('admin123', salt);
+  const accounts = [
+    {
+      username: 'Admin_Ropar',
+      email: 'admin@iitr.ac.in',
+      password: adminPassword,
+      role: 'admin',
+      spPoints: 0,
+      level: 1,
+      trustScore: 100,
+      badges: ['Staff Administrator']
+    },
+    {
+      username: 'Sanjay_Kumar',
+      email: 'sanjay@iitr.ac.in',
+      password: studentPassword,
+      role: 'student',
+      spPoints: 240,
+      level: 3,
+      trustScore: 100,
+      contributionRating: 'Rising Star',
+      badges: ['Campus Rookie', 'Community Helper']
+    },
+    {
+      username: 'Priya_Sharma',
+      email: 'priya@iitr.ac.in',
+      password: studentPassword,
+      role: 'student',
+      spPoints: 410,
+      level: 5,
+      trustScore: 100,
+      contributionRating: 'Champion',
+      badges: ['Campus Rookie', 'Verified Expert', 'Community Helper', 'FAQ Architect']
+    }
+  ];
+
+  for (const account of accounts) {
+    const existing = await User.findOne({ email: account.email });
+    if (existing) {
+      existing.password = account.password;
+      existing.role = account.role;
+      await existing.save();
+      continue;
+    }
+    await User.create(account);
+  }
+
+  console.log('[Seeding] Local demo login accounts are ready.');
+};
+
 // Connect to Database and start server
 const PORT = process.env.PORT || 5000;
 const seedOfficialFAQs = require('./seedFAQs');
-connectDB().then(async () => {
-  // Only seed the real MongoDB database if Mongoose has successfully connected
-  if (mongoose.connection && mongoose.connection.readyState === 1) {
-    await seedDatabase();
-    await seedOfficialFAQs();
+function validateConfiguration() {
+  const missing = ['MONGODB_URI', 'JWT_SECRET'].filter(key => !process.env[key]);
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
-  
-  // Start server listening directly
-  app.listen(PORT, () => {
-    console.log(`[Server] Express Backend running on port ${PORT}`);
+  if (isProduction && process.env.JWT_SECRET.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters in production');
+  }
+}
+
+if (isProduction) {
+  const frontendDist = path.join(__dirname, '../frontend/dist');
+  app.use(express.static(frontendDist));
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
   });
+}
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ message: 'API route not found' });
+});
+app.use((error, req, res, next) => {
+  if (error.message.includes('not permitted by CORS policy')) {
+    return res.status(403).json({ message: error.message });
+  }
+  console.error(`[Request Error] ${error.message}`);
+  res.status(500).json({ message: 'Internal Server Error' });
 });
 
-// Hot-reload trigger comment to restart server in terminal. (Seed trigger)
+async function startServer() {
+  validateConfiguration();
+  await connectDB();
+
+  // Only seed the real MongoDB database if Mongoose has successfully connected
+  let faqSeedEnabled = false;
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    const demoSeedEnabled = process.env.ENABLE_DEMO_SEED === 'true'
+      || (!isProduction && process.env.ENABLE_DEMO_SEED !== 'false');
+    faqSeedEnabled = process.env.ENABLE_FAQ_SEED === 'true'
+      || (!isProduction && process.env.ENABLE_FAQ_SEED !== 'false');
+
+    if (demoSeedEnabled) {
+      await ensureDemoAccounts();
+    }
+  }
+
+  app.listen(PORT, () => {
+    console.log(`[Server] Express backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+    if (faqSeedEnabled) {
+      seedOfficialFAQs();
+    }
+  });
+}
+
+startServer().catch(error => {
+  console.error(`[Startup Error] ${error.message}`);
+  process.exit(1);
+});
