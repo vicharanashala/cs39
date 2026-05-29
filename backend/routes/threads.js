@@ -2,12 +2,78 @@ const express = require('express');
 const router = express.Router();
 const { FAQThread, Answer, Comment, User, Notification, SPTransaction } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
-const { checkSemanticSimilarity, scoreContentModeration } = require('../services/aiService');
+const { checkSemanticSimilarity, scoreContentModeration, tokenize, classifyQueryCategory, paraphraseQuery, analyzeFAQ } = require('../services/aiService');
 const { updateReputation } = require('../services/reputation');
+
+// ── In-memory semantic scorer (no extra DB call) ─────────────────────────
+function buildInMemoryVocab(threads) {
+  const vocab = new Set();
+  const commonTerms = ['internship', 'noc', 'certificate', 'attendance', 'stipend', 'vins',
+    'vibe', 'vicharanashala', 'deadline', 'assignment', 'lab', 'mentor', 'project',
+    'technical', 'wifi', 'payment', 'announcement', 'selection', 'faq'];
+  commonTerms.forEach(t => vocab.add(t));
+  threads.forEach(t => {
+    const text = `${t.title} ${t.category || ''}`.toLowerCase().replace(/[^\w\s]/g, '');
+    text.split(/\s+/).filter(w => w.length > 2).forEach(w => vocab.add(w));
+  });
+  return vocab;
+}
+
+function computeInMemoryScore(queryTokens, queryClean, thread, queryCategory, vocab) {
+  // Direct title match boost
+  const titleClean = (thread.title || '').toLowerCase().replace(/[^\w\s]/g, '').trim();
+  if (queryClean === titleClean) return 1.0;
+
+  const tTokens = tokenize(thread.title || '');
+  const qSet = new Set(queryTokens);
+  const tSet = new Set(tTokens);
+
+  let intersection = 0;
+  qSet.forEach(w => { if (tSet.has(w)) intersection++; });
+
+  let union = qSet.size + tSet.size - intersection;
+  if (union === 0) return 0;
+
+  let score = intersection / union;
+  if (thread.category && queryCategory && thread.category.toLowerCase() === queryCategory.toLowerCase()) {
+    score += 0.15;
+  }
+  return Math.min(1.0, score);
+}
 
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+// GET /api/search/paraphrase - Generate paraphrased search queries
+router.get('/search/paraphrase', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 3) {
+      return res.json({ paraphrases: [] });
+    }
+    const paraphrases = paraphraseQuery(String(q).trim().slice(0, 200));
+    res.json({ paraphrases });
+  } catch (error) {
+    console.error('Paraphrase error:', error.message);
+    res.status(500).json({ message: 'Error generating paraphrases' });
+  }
+});
+
+// GET /api/threads/analyze - Preview analysis for a given title+body without saving
+router.get('/analyze', async (req, res) => {
+  try {
+    const { title, body } = req.query;
+    if (!title || !body) {
+      return res.status(400).json({ message: 'title and body are required for analysis' });
+    }
+    const result = analyzeFAQ(String(title).trim(), String(body).trim());
+    res.json(result);
+  } catch (error) {
+    console.error('Analyze error:', error.message);
+    res.status(500).json({ message: 'Error analyzing FAQ' });
+  }
+});
 
 // GET /api/threads - List threads with filters (category, search, sorting)
 router.get('/', async (req, res) => {
@@ -25,6 +91,7 @@ router.get('/', async (req, res) => {
     }
     if (search) {
       const safeSearch = escapeRegex(String(search).trim().slice(0, 100));
+      // Fallback to regex for quick keyword matches
       query.$or = [
         { title: { $regex: safeSearch, $options: 'i' } },
         { body: { $regex: safeSearch, $options: 'i' } }
@@ -39,13 +106,92 @@ router.get('/', async (req, res) => {
     } else if (sort === 'replies') {
       sortCriteria = { repliesCount: -1 };
     }
+    // Official FAQ list — always sort by section number (faqSortKey for numeric order)
+    if (isOfficial === 'true') {
+      sortCriteria = { faqSortKey: 1 };
+    }
 
     const limit = isOfficial === 'true' ? 250 : 100;
     let threadQuery = FAQThread.find(query).sort(sortCriteria).limit(limit);
     if (isOfficial === 'true') {
-      threadQuery = threadQuery.select('title category isOfficial');
+      threadQuery = threadQuery.select('title category isOfficial faqNumber faqSortKey');
     }
-    const threads = await threadQuery;
+    let threads = await threadQuery;
+
+    // Apply semantic re-ranking when a text search is provided
+    if (search && threads.length > 1) {
+      const searchStr = String(search).trim();
+      // Build quick in-memory scoring using the same NLP pipeline
+      const vocab = buildInMemoryVocab(threads);
+      const searchTokens = tokenize(searchStr);
+      const searchClean = searchStr.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      const searchCategory = classifyQueryCategory(searchStr);
+
+      // ── Smart Search with Paraphrasing ──────────────────────────────────
+      const useParaphrase = req.query.paraphrase === 'true';
+      let allScored = [];
+
+      const scoreThread = (t, qTokens, qClean, qCat) => ({
+        thread: t,
+        score: computeInMemoryScore(qTokens, qClean, {
+          title: t.title,
+          category: t.category || ''
+        }, qCat, vocab)
+      });
+
+      if (useParaphrase) {
+        // Generate multiple search variants
+        const variants = [searchStr, ...paraphraseQuery(searchStr)];
+        const seen = new Set();
+
+        variants.forEach(variant => {
+          if (!variant.trim()) return;
+          const qTokens = tokenize(variant);
+          const qClean = variant.toLowerCase().replace(/[^\w\s]/g, '').trim();
+          const qCat = classifyQueryCategory(variant);
+
+          threads.forEach(t => {
+            if (seen.has(t._id.toString())) return;
+            const { score } = scoreThread(t, qTokens, qClean, qCat);
+            if (score > 0.1) {
+              seen.add(t._id.toString());
+              allScored.push({ thread: t, score });
+            }
+          });
+        });
+
+        // Deduplicate: keep highest score per thread
+        const bestById = new Map();
+        allScored.forEach(item => {
+          const key = item.thread._id.toString();
+          if (!bestById.has(key) || bestById.get(key) < item.score) {
+            bestById.set(key, item.score);
+          }
+        });
+
+        allScored = threads
+          .map(t => ({ thread: t, score: bestById.get(t._id.toString()) || 0 }))
+          .filter(item => item.score > 0.1)
+          .sort((a, b) => b.score - a.score)
+          .map(item => ({ ...item.thread.toObject(), _semScore: Math.round(item.score * 100) }));
+
+        threads = allScored;
+      } else {
+        // Original single-query scoring
+        threads = threads
+          .map(thread => ({
+            thread,
+            score: computeInMemoryScore(searchTokens, searchClean, {
+              title: thread.title,
+              category: thread.category || ''
+            }, searchCategory, vocab)
+          }))
+          .filter(item => item.score > 0.1)
+          .sort((a, b) => b.score - a.score)
+          .map(item => ({ ...item.thread.toObject(), _semScore: Math.round(item.score * 100) }));
+      }
+    }
+
     res.json(threads);
   } catch (error) {
     console.error('Fetch threads error:', error.message);
@@ -66,6 +212,37 @@ router.post('/check-duplicate', async (req, res) => {
   } catch (error) {
     console.error('Check duplicate error:', error.message);
     res.status(500).json({ message: 'Error checking duplicate threads' });
+  }
+});
+
+// GET /api/threads/trending - Top trending FAQs by engagement score
+router.get('/trending', async (req, res) => {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const threads = await FAQThread.find({
+      status: 'active',
+      isMerged: false,
+      createdAt: { $gte: cutoff }
+    }).select('title category upvotes meToo repliesCount faqNumber isOfficial');
+
+    const scored = threads
+      .map(t => ({
+        _id: t._id,
+        title: t.title,
+        category: t.category,
+        faqNumber: t.faqNumber,
+        isOfficial: t.isOfficial,
+        score: (t.upvotes.length * 3) + (t.meToo.length * 2) + (t.repliesCount * 5)
+      }))
+      .filter(t => t.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    res.json(scored);
+  } catch (err) {
+    console.error('[Trending] Error:', err.message);
+    res.status(500).json({ message: 'Error fetching trending FAQs' });
   }
 });
 
@@ -103,9 +280,10 @@ router.post('/create', authMiddleware, async (req, res) => {
       });
     }
 
-    // Run AI Moderation Scoring
+    // Run AI Analysis + Moderation Scoring
+    const aiAnalysis = analyzeFAQ(title, body);
     const aiScores = scoreContentModeration(body, title);
-    
+
     let threadStatus = 'active';
     if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
       threadStatus = 'flagged';
@@ -118,10 +296,26 @@ router.post('/create', authMiddleware, async (req, res) => {
       author: req.user._id,
       authorName: req.user.username,
       status: threadStatus,
+      priority: aiAnalysis.priority,
+      tags: aiAnalysis.tags,
+      summary: aiAnalysis.summary,
+      structuredBody: aiAnalysis.structuredBody,
+      analysisMetadata: aiAnalysis.analysisMetadata,
       aiScores
     });
 
     await newThread.save();
+
+    // Auto-create FAQ tracker for this new thread
+    try {
+      const { FAQTracker } = require('../models/Schemas');
+      const ts = new Date();
+      await FAQTracker.create({
+        threadId: newThread._id,
+        status: 'received',
+        steps: [{ status: 'received', label: 'Question Received', timestamp: ts }]
+      });
+    } catch (e) { console.error('Tracker create failed:', e.message); }
 
     if (threadStatus === 'flagged') {
       const notif = new Notification({
@@ -284,9 +478,58 @@ router.post('/:id/answers/create', authMiddleware, async (req, res) => {
         type: 'answer'
       });
       await notif.save();
+
+      // Real-time push via Socket.IO
+      const io = req.app.get('io');
+      if (io) {
+        io.to(thread.author.toString()).emit('answer_received', {
+          threadId: thread._id,
+          threadTitle: thread.title,
+          answerAuthor: req.user.username
+        });
+        io.to(thread.author.toString()).emit('notification', {
+          title: notif.title,
+          message: notif.message,
+          type: 'answer'
+        });
+      }
     }
 
-    // Award +5 SP for student answers (unless moderation flags it as spam)
+        // Advance FAQ tracker to expert_review
+    const { FAQTracker } = require('../models/Schemas');
+    const STATUS_MAP = {
+      'received': 'Question Received', 'ai_analyzing': 'AI Analyzing',
+      'expert_review': 'Expert Reviewing', 'verified': 'Answer Verified',
+      'completed': 'Solution Completed'
+    };
+    const ts = new Date();
+    let tracker = await FAQTracker.findOne({ threadId: thread._id });
+    if (!tracker) {
+      tracker = await FAQTracker.create({
+        threadId: thread._id, status: 'expert_review',
+        steps: [
+          { status: 'received', label: 'Question Received', timestamp: ts },
+          { status: 'ai_analyzing', label: 'AI Analyzing', timestamp: ts },
+          { status: 'expert_review', label: 'Expert Reviewing', timestamp: ts }
+        ]
+      });
+    } else if (tracker.status === 'received' || tracker.status === 'ai_analyzing') {
+      tracker.steps.push({ status: 'expert_review', label: 'Expert Reviewing', timestamp: ts });
+      tracker.status = 'expert_review';
+      tracker.updatedAt = ts;
+      await tracker.save();
+    }
+    // Emit live tracker update
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('faq_status_update', {
+        threadId: thread._id.toString(),
+        status: tracker.status,
+        steps: tracker.steps
+      });
+    }
+
+// Award +5 SP for student answers (unless moderation flags it as spam)
     if (req.user.role === 'student' && !isSpam) {
       await updateReputation(req.user._id, 5, 'helpful_answer');
     } else if (isSpam) {
@@ -311,6 +554,11 @@ router.post('/answers/:ansId/upvote', authMiddleware, async (req, res) => {
 
     if (upvotedIndex > -1) {
       answer.upvotes.splice(upvotedIndex, 1);
+      
+      // Revoke SP when user removes their upvote
+      if (answer.author.toString() !== userIdStr && answer.authorRole === 'student') {
+        await updateReputation(answer.author, -1, 'helpful_answer');
+      }
     } else {
       answer.upvotes.push(req.user._id);
       
@@ -391,6 +639,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     const aiScores = scoreContentModeration(body, title);
+    const aiAnalysis = analyzeFAQ(title, body);
     let threadStatus = 'active';
     if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
       threadStatus = 'flagged';
@@ -401,6 +650,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
     thread.category = category || thread.category;
     thread.status = threadStatus;
     thread.aiScores = aiScores;
+    thread.priority = aiAnalysis.priority;
+    thread.tags = aiAnalysis.tags;
+    thread.summary = aiAnalysis.summary;
+    thread.structuredBody = aiAnalysis.structuredBody;
+    thread.analysisMetadata = aiAnalysis.analysisMetadata;
     thread.updatedAt = Date.now();
 
     await thread.save();

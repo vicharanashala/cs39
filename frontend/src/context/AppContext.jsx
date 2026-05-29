@@ -1,5 +1,6 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import api from '../utils/api';
+import { initSocket, disconnectSocket, onSPChange, onNewNotification } from '../utils/socket';
 
 const AppContext = createContext();
 
@@ -10,6 +11,7 @@ export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'dashboard' | 'leaderboard' | 'profile' | 'admin'
   const [selectedThreadId, setSelectedThreadId] = useState(null); // Track drill-down thread detail view
   const [alert, setAlert] = useState(null); // Simple alert banner: { message, type }
+  const [bookmarks, setBookmarks] = useState([]); // Array of bookmarked thread IDs
 
   // Theme management effect
   useEffect(() => {
@@ -83,6 +85,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const logout = () => {
+    disconnectSocket();
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
@@ -102,9 +105,81 @@ export const AppProvider = ({ children }) => {
     }, 4000);
   };
 
+  const fetchBookmarks = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await api.get('/bookmarks');
+      setBookmarks(res.data.map(b => b.threadId));
+    } catch (err) {
+      console.error('[AppContext] fetchBookmarks error:', err.message);
+    }
+  }, [token]);
+
+  const toggleBookmark = useCallback(async (threadId) => {
+    if (!token) return;
+    try {
+      const res = await api.post('/bookmarks/toggle', { threadId });
+      setBookmarks(prev =>
+        res.data.bookmarked
+          ? [...prev, threadId]
+          : prev.filter(id => id !== threadId)
+      );
+      return res.data.bookmarked;
+    } catch (err) {
+      showAlert('Could not update bookmark.', 'error');
+      return null;
+    }
+  }, [token]);
+
+  // Load bookmarks when user logs in
+  useEffect(() => {
+    if (user) {
+      fetchBookmarks();
+    }
+  }, [user, fetchBookmarks]);
+
   const addToast = (title, message, type = 'info') => {
     showAlert(`${title}: ${message}`, type === 'error' || type === 'verification' ? 'error' : 'success');
   };
+
+  // ── Socket.IO real-time subscriptions ─────────────────────────────────
+  const socketSetup = useCallback((authToken) => {
+    if (!authToken) return;
+    initSocket(authToken);
+
+    // Live SP changes
+    const unsubSP = onSPChange((data) => {
+      setUser(prev => {
+        if (!prev) return prev;
+        const direction = data.pointsChange >= 0 ? 'gained' : 'lost';
+        const abs = Math.abs(data.pointsChange);
+        showAlert(
+          `${direction === 'gained' ? '✨' : '⚠️'} SP ${direction} ${abs}!  (Total: ${data.newTotal})`,
+          direction === 'gained' ? 'success' : 'error'
+        );
+        return { ...prev, spPoints: data.newTotal, level: data.level };
+      });
+    });
+
+    // Live notifications
+    const unsubNotif = onNewNotification((notif) => {
+      showAlert(`🔔 ${notif.title} — ${notif.message}`, 'info');
+    });
+
+    return () => {
+      unsubSP();
+      unsubNotif();
+      disconnectSocket();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Connect socket on login; disconnect on logout
+  useEffect(() => {
+    if (token) {
+      const cleanup = socketSetup(token);
+      return cleanup;
+    }
+  }, [token, socketSetup]);
 
   return (
     <AppContext.Provider value={{
@@ -122,7 +197,10 @@ export const AppProvider = ({ children }) => {
       toggleTheme,
       showAlert,
       setAlert,
-      addToast
+      addToast,
+      bookmarks,
+      fetchBookmarks,
+      toggleBookmark
     }}>
       {children}
     </AppContext.Provider>

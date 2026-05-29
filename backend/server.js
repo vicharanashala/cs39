@@ -5,6 +5,7 @@ require('dotenv').config({
   path: fs.existsSync(backendEnvPath) ? backendEnvPath : path.join(__dirname, '../.env')
 });
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
@@ -21,8 +22,13 @@ const profileRoutes = require('./routes/profile');
 const chatbotRoutes = require('./routes/chatbot');
 const notificationRoutes = require('./routes/notifications');
 const leaderboardRoutes = require('./routes/leaderboard');
+const bookmarkRoutes = require('./routes/bookmarks');
+const trackRoutes = require('./routes/track');
 
 const app = express();
+const server = http.createServer(app);
+
+// ── Environment & CORS config (must be before Socket.IO uses them) ───────
 const isProduction = process.env.NODE_ENV === 'production';
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
@@ -39,6 +45,53 @@ function isLocalDevelopmentOrigin(origin) {
     return false;
   }
 }
+
+// ── Socket.IO setup ──────────────────────────────────────────────────────
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Socket.IO: JWT authentication + user rooms
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  if (!token) {
+    return next();
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id || decoded._id;
+    socket.userRole = decoded.role || 'student';
+    next();
+  } catch (err) {
+    next();
+  }
+});
+
+io.on('connection', (socket) => {
+  if (socket.userId) {
+    socket.join(socket.userId);
+    console.log(`[Socket.IO] User ${socket.userId} connected (role: ${socket.userRole})`);
+  } else {
+    console.log('[Socket.IO] Anonymous client connected');
+  }
+  socket.on('disconnect', () => {
+    console.log(`[Socket.IO] Client disconnected (userId: ${socket.userId || 'anonymous'})`);
+  });
+});
+
+// Attach io to app so routes can access it
+app.set('io', io);
+
+// Give reputation service access to io for real-time SP events
+const { setSocketIO } = require('./services/reputation');
+setSocketIO(io);
 
 // App environment configurations
 app.set('trust proxy', 1);
@@ -83,6 +136,8 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/bookmarks', bookmarkRoutes);
+app.use('/api/track', trackRoutes);
 
 // Database Seeding Logic
 const seedDatabase = async () => {
@@ -392,8 +447,8 @@ async function startServer() {
     }
   }
 
-  app.listen(PORT, () => {
-    console.log(`[Server] Express backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+  server.listen(PORT, () => {
+    console.log(`[Server] Express + Socket.IO backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
     if (faqSeedEnabled) {
       seedOfficialFAQs();
     }

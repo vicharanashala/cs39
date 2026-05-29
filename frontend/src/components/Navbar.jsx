@@ -26,6 +26,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
       case 'leaderboard': return 'Leaderboard';
       case 'profile': return 'My Profile';
       case 'admin': return 'Admin Terminal';
+      case 'analytics': return 'Analytics & Insights';
       default: return 'IIT Ropar Support';
     }
   };

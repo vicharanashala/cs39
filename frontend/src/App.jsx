@@ -8,6 +8,7 @@ import FAQFeed from './pages/FAQFeed';
 import ThreadDetail from './pages/ThreadDetail';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
+import Analytics from './pages/Analytics';
 import { X } from 'lucide-react';
 
 const AppContent = () => {
@@ -51,6 +52,8 @@ const AppContent = () => {
       case 'dashboard':
       case 'admin':
         return <Dashboard />;
+      case 'analytics':
+        return <Analytics />;
       case 'profile':
         return <Profile />;
       default:
@@ -65,7 +68,7 @@ const AppContent = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-brand-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="flex min-h-screen bg-pink-50 dark:bg-brand-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
       
       {/* 1. Desktop Sidebar Removed per request */}
 
@@ -112,14 +115,24 @@ const AppContent = () => {
                   Student Profile
                 </button>
                 {user.role === 'admin' && (
-                  <button
-                    onClick={() => handleMobileNavClick('admin')}
-                    className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
-                      activeTab === 'admin' ? 'bg-brand-500/10 text-brand-400' : ''
-                    }`}
-                  >
-                    Admin Panel
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleMobileNavClick('admin')}
+                      className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
+                        activeTab === 'admin' ? 'bg-brand-500/10 text-brand-400' : ''
+                      }`}
+                    >
+                      Admin Panel
+                    </button>
+                    <button
+                      onClick={() => handleMobileNavClick('analytics')}
+                      className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
+                        activeTab === 'analytics' ? 'bg-brand-500/10 text-brand-400' : ''
+                      }`}
+                    >
+                      Analytics
+                    </button>
+                  </>
                 )}
               </nav>
             </div>
