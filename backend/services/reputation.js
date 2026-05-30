@@ -1,5 +1,16 @@
 const { User, SPTransaction, Notification } = require('../models/Schemas');
 
+// Injected from server.js after io is created
+let _io = null;
+
+/**
+ * Allow server.js to pass the io instance once it's created.
+ * Called from server.js after `io = new Server(...)`.
+ */
+function setSocketIO(io) {
+  _io = io;
+}
+
 /**
  * Adjusts user reputation (SP) points, logs transaction, triggers level-ups and badges.
  * @param {string} userId - User to reward/penalize
@@ -70,6 +81,17 @@ async function updateReputation(userId, pointsChange, reason) {
 
     await user.save();
 
+    // Emit real-time SP event to the user's socket room
+    if (_io) {
+      const eventName = pointsChange >= 0 ? 'sp_gained' : 'sp_lost';
+      _io.to(user._id.toString()).emit(eventName, {
+        pointsChange,
+        reason,
+        newTotal: user.spPoints,
+        level: user.level
+      });
+    }
+
     // Log the transaction
     const tx = new SPTransaction({
       userId: user._id,
@@ -131,5 +153,6 @@ async function updateReputation(userId, pointsChange, reason) {
 }
 
 module.exports = {
-  updateReputation
+  updateReputation,
+  setSocketIO
 };

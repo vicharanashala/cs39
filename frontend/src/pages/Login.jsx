@@ -57,13 +57,13 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-brand-950 dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(76,101,169,0.18),rgba(255,255,255,0))] flex flex-col justify-center items-center p-4 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 relative">
+    <div className="soft-page soft-page-bg min-h-screen flex flex-col justify-center items-center p-4 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 relative">
       
       {/* Floating Theme Toggle */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
         <button
           onClick={toggleTheme}
-          className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 shadow-sm hover:shadow-md transition-all cursor-pointer"
+          className="soft-panel p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 shadow-sm hover:shadow-md transition-all cursor-pointer"
           title="Toggle Theme"
         >
           {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
@@ -72,22 +72,22 @@ const Login = () => {
 
       {/* Brand Header */}
       <div className="text-center mb-8 flex flex-col items-center">
-        <div className="bg-brand-500 text-white p-3 rounded-2xl shadow-xl shadow-brand-500/20 mb-4 flex items-center justify-center">
+        <div className="soft-primary p-3 rounded-2xl shadow-xl mb-4 flex items-center justify-center">
           <span className="text-3xl">🎓</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-wide">IIT ROPAR</h1>
-        <p className="text-xs text-brand-600 dark:text-brand-300 font-semibold uppercase tracking-widest mt-1">FAQ & Community Platform</p>
+        <p className="soft-accent text-xs font-semibold uppercase tracking-widest mt-1">FAQ & Community Platform</p>
       </div>
 
       {/* Main Glassmorphic Container */}
-      <div className="w-full max-w-md bg-white dark:bg-brand-900/60 border border-slate-200 dark:border-brand-850/80 rounded-3xl p-6 sm:p-8 backdrop-blur-md shadow-2xl relative transition-all duration-300">
+      <div className="soft-panel w-full max-w-md bg-white dark:bg-brand-900/60 border border-slate-200 dark:border-brand-850/80 rounded-3xl p-6 sm:p-8 backdrop-blur-md shadow-2xl relative transition-all duration-300">
         
         {/* Toggle Form Tabs */}
         <div className="flex bg-slate-100 dark:bg-brand-950/80 p-1.5 rounded-2xl mb-6 border border-slate-200 dark:border-brand-850/40">
           <button
             onClick={() => { setIsLogin(true); setError(''); }}
             className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer ${
-              isLogin ? 'bg-brand-500 text-white shadow-md' : 'text-slate-500 dark:text-slate-450 hover:text-slate-900 dark:hover:text-white'
+              isLogin ? 'soft-primary shadow-md' : 'text-slate-500 dark:text-slate-450 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Sign In
@@ -95,7 +95,7 @@ const Login = () => {
           <button
             onClick={() => { setIsLogin(false); setError(''); }}
             className={`flex-1 py-2 text-center text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer ${
-              !isLogin ? 'bg-brand-500 text-white shadow-md' : 'text-slate-500 dark:text-slate-450 hover:text-slate-900 dark:hover:text-white'
+              !isLogin ? 'soft-primary shadow-md' : 'text-slate-500 dark:text-slate-450 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Create Account
@@ -154,7 +154,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={() => { setShowForgot(true); setForgotMessage(''); }}
-                  className="text-[10px] font-bold text-brand-500 dark:text-brand-400 hover:text-brand-650 dark:hover:text-brand-300 transition-colors cursor-pointer"
+                  className="soft-accent text-[10px] font-bold hover:opacity-80 transition-colors cursor-pointer"
                 >
                   Forgot Password?
                 </button>
@@ -178,7 +178,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-bold rounded-xl text-xs transition-all shadow-md shadow-brand-500/10 hover:shadow-brand-500/20 flex items-center justify-center space-x-1.5 mt-2 cursor-pointer"
+            className="soft-primary w-full py-2.5 disabled:opacity-50 font-bold rounded-xl text-xs transition-all shadow-md flex items-center justify-center space-x-1.5 mt-2 cursor-pointer"
           >
             <span>{loading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Create Account'}</span>
             <ArrowRight className="w-4 h-4" />
@@ -187,7 +187,7 @@ const Login = () => {
 
         {showDemoLogin && (
           <div className="mt-6 pt-5 border-t border-slate-200 dark:border-brand-850/80">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-brand-500 dark:text-brand-400 mb-2">Local Demo Accounts</h4>
+            <h4 className="soft-accent text-[10px] font-bold uppercase tracking-wider mb-2">Local Demo Accounts</h4>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleQuickLogin('priya@iitr.ac.in', 'student123')}
@@ -215,7 +215,7 @@ const Login = () => {
       {/* Forgot Password Modal Overlay */}
       {showForgot && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-3xl p-6 shadow-2xl relative animate-slide-in">
+          <div className="soft-panel w-full max-w-sm bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-3xl p-6 shadow-2xl relative animate-slide-in">
             <button 
               onClick={() => setShowForgot(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-white transition-colors cursor-pointer"
@@ -241,7 +241,7 @@ const Login = () => {
                 />
                 <button
                   type="submit"
-                  className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  className="soft-primary w-full py-2 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                 >
                   Send Recovery Link
                 </button>

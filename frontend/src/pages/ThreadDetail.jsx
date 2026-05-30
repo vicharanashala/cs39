@@ -1,19 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import api from '../utils/api';
-import { 
-  ArrowLeft, 
-  ArrowUp, 
-  CheckCircle2, 
-  MessageSquare, 
-  Send, 
-  ShieldCheck, 
+import {
+  ArrowLeft,
+  ArrowUp,
+  CheckCircle2,
+  MessageSquare,
+  Send,
+  ShieldCheck,
   Trash2,
   Calendar,
   AlertTriangle,
   Users,
-  X
+  X,
+  Sparkles,
+  Tag,
+  AlignLeft,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  AlertCircle
 } from 'lucide-react';
+import { TTSButton } from '../components/TTSButton';
+import { LiveFAQTracker } from '../components/LiveFAQTracker';
 
 const ALL_CATEGORIES = [
   'Internship', 'Selection Process', 'Certificates', 'Attendance', 
@@ -102,6 +111,10 @@ const ThreadDetail = () => {
     setSubmitLoading(true);
     try {
       await api.post(`/threads/${thread._id}/answers/create`, { body: newAnswer });
+      api.post('/admin/analytics/log-activity', {
+        action: 'post_answer',
+        metadata: { threadId: thread._id }
+      }).catch(() => {});
       setNewAnswer('');
       // Reload answers list
       const answersRes = await api.get(`/threads/${thread._id}/answers`);
@@ -120,6 +133,10 @@ const ThreadDetail = () => {
       setAnswers(prev => 
         prev.map(a => a._id === ansId ? { ...a, upvotes: res.data.upvotes } : a)
       );
+      api.post('/admin/analytics/log-activity', {
+        action: 'upvote',
+        metadata: { threadId: thread._id, answerId: ansId }
+      }).catch(() => {});
     } catch (error) {
       console.error('Vote answer error:', error.message);
       addToast('Error', 'Failed to upvote answer', 'verification');
@@ -324,6 +341,9 @@ const ThreadDetail = () => {
         <span>Back to FAQ Center</span>
       </button>
 
+      {/* Live FAQ Tracking Panel */}
+      {thread && <LiveFAQTracker threadId={thread._id} />}
+
       {/* Main Question Container Card */}
       <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-900/60 p-6 rounded-3xl shadow-sm space-y-4">
         
@@ -402,9 +422,158 @@ const ThreadDetail = () => {
             </h2>
 
             {thread.body !== thread.title && (
-              <p className="text-xs sm:text-sm text-slate-550 dark:text-slate-350 leading-relaxed whitespace-pre-wrap">
-                {thread.body}
-              </p>
+              <div className="flex items-start gap-2">
+                <p className="text-xs sm:text-sm text-slate-550 dark:text-slate-350 leading-relaxed whitespace-pre-wrap flex-1">
+                  {thread.body}
+                </p>
+                <div className="shrink-0 mt-0.5">
+                  <TTSButton text={thread.body} size="sm" />
+                </div>
+              </div>
+            )}
+
+            {/* Auto-Analysis Panel */}
+            {thread.analysisMetadata?.analyzedAt && (
+              <details className="group rounded-xl border border-slate-200 dark:border-brand-850 overflow-hidden">
+                <summary className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 dark:bg-brand-950/30 cursor-pointer select-none">
+                  <div className="flex items-center space-x-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>AI Analysis</span>
+                    {thread.analysisMetadata.confidence >= 0.8 && (
+                      <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 px-1.5 py-0.5 rounded text-[9px] font-black">High Confidence</span>
+                    )}
+                    {thread.analysisMetadata.confidence < 0.5 && (
+                      <span className="bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded text-[9px] font-black">Low Confidence</span>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {thread.priority && (
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
+                        thread.priority === 'urgent' ? 'bg-rose-500/10 text-rose-500' :
+                        thread.priority === 'high' ? 'bg-orange-500/10 text-orange-500' :
+                        thread.priority === 'medium' ? 'bg-blue-500/10 text-blue-500' :
+                        'bg-slate-200 text-slate-500'
+                      }`}>
+                      {thread.priority} priority
+                    </span>
+                    )}
+                    {thread.analysisMetadata?.keywords?.length > 0 && (
+                      <span className="text-[9px] text-slate-400 font-bold">{thread.analysisMetadata.keywords.length} keywords</span>
+                    )}
+                    <ChevronDown className="w-4 h-4 text-slate-400 group-open:hidden" />
+                    <ChevronUp className="w-4 h-4 text-slate-400 hidden group-open:block" />
+                  </div>
+                </summary>
+                <div className="px-4 py-4 bg-white dark:bg-brand-950/10 space-y-4 border-t border-slate-100 dark:border-brand-850">
+                  {thread.summary && (
+                    <div className="flex items-start gap-2">
+                      <AlignLeft className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-1">Auto-Summary</p>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{thread.summary}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-4">
+                    {thread.priority && (
+                      <div className="flex items-start gap-2">
+                        <Zap className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-1">Priority</p>
+                          <span className={`inline-block text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
+                            thread.priority === 'urgent' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                            thread.priority === 'high' ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' :
+                            thread.priority === 'medium' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                            'bg-slate-200 text-slate-500 border border-slate-300'
+                          }`}>
+                            {thread.priority}
+                          </span>
+                          {thread.analysisMetadata.priorityScore > 0 && (
+                            <span className="text-[9px] text-slate-400 ml-1">score:{thread.analysisMetadata.priorityScore}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {thread.analysisMetadata.categoryHint && thread.analysisMetadata.categoryHint !== thread.category && (
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-1">Suggested Category</p>
+                          <span className="inline-block text-[9px] font-bold px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-450 rounded border border-amber-500/20">
+                            {thread.analysisMetadata.categoryHint}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {thread.tags?.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <Tag className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2">Tags</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {thread.tags.map(tag => (
+                            <span key={tag} className="inline-flex items-center px-2 py-0.5 bg-brand-500/8 text-brand-600 dark:text-brand-400 text-[9px] font-bold rounded-full border border-brand-500/15">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(thread.structuredBody?.instruction || thread.structuredBody?.steps?.length > 0 || thread.structuredBody?.note) && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Structured Format</p>
+                      <div className="bg-slate-50 dark:bg-brand-950/40 rounded-xl p-3 space-y-2">
+                        {thread.structuredBody.instruction && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-[9px] font-black text-brand-500 mt-0.5 shrink-0">→</span>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold">{thread.structuredBody.instruction}</p>
+                          </div>
+                        )}
+                        {thread.structuredBody.steps?.length > 0 && (
+                          <ol className="space-y-1.5 pl-4">
+                            {thread.structuredBody.steps.map((step, i) => (
+                              <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                <span className="text-[9px] font-black text-brand-500 mt-0.5 shrink-0">{i + 1}.</span>
+                                <span>{step}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                        {thread.structuredBody.note && (
+                          <div className="flex items-start gap-2 mt-2 pt-2 border-t border-slate-200 dark:border-brand-850">
+                            <AlertCircle className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
+                            <p className="text-[11px] text-amber-700 dark:text-amber-450 font-semibold italic">{thread.structuredBody.note}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {thread.analysisMetadata.confidence > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-medium">Analysis Confidence</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-20 h-1.5 bg-slate-200 dark:bg-brand-900 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              thread.analysisMetadata.confidence >= 0.7 ? 'bg-emerald-500' :
+                              thread.analysisMetadata.confidence >= 0.4 ? 'bg-amber-500' : 'bg-rose-500'
+                            }`}
+                            style={{ width: `${Math.round(thread.analysisMetadata.confidence * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{Math.round(thread.analysisMetadata.confidence * 100)}%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </details>
             )}
 
             {/* Voting and ownership stamps footer */}
@@ -658,9 +827,14 @@ const ThreadDetail = () => {
                       </div>
                     </form>
                   ) : (
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-350 leading-relaxed whitespace-pre-line">
-                      {ans.body}
-                    </p>
+                    <div className="flex items-start gap-2">
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-350 leading-relaxed whitespace-pre-line flex-1">
+                        {ans.body}
+                      </p>
+                      <div className="shrink-0 mt-0.5">
+                        <TTSButton text={ans.body} size="sm" />
+                      </div>
+                    </div>
                   )}
 
                   {/* Answer Toolbar */}

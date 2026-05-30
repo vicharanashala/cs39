@@ -262,7 +262,7 @@ function computeSemanticScore(queryTokens, queryClean, thread, queryCategory) {
   // Phrase (consecutive word sequence) matching
   const queryWords = queryClean.split(/\s+/).filter(w => !STOPWORDS.has(w) && w.length > 2);
   const titleClean = thread.title.toLowerCase();
-  
+
   let phraseBonus = 0;
   for (let i = 0; i < queryWords.length - 1; i++) {
     const bigram = `${queryWords[i]} ${queryWords[i+1]}`;
@@ -270,7 +270,17 @@ function computeSemanticScore(queryTokens, queryClean, thread, queryCategory) {
       phraseBonus += 0.1;
     }
   }
-  score += phraseBonus;
+
+  // Substring match bonus: query keywords that appear as substrings in the title
+  // Handles natural language questions ("how do i join") vs keyword titles ("How to join VINS")
+  let substringBonus = 0;
+  for (const token of queryTokens) {
+    if (!STOPWORDS.has(token) && token.length > 1 && token.length < 10 && titleClean.includes(token)) {
+      substringBonus += 0.25;
+    }
+  }
+
+  score += phraseBonus + Math.min(0.55, substringBonus);
 
   return Math.min(1.0, score);
 }
@@ -378,12 +388,18 @@ function scoreContentModeration(text, title = '') {
  */
 async function retrieveRAGResponse(userQuery) {
   try {
-    const threads = await FAQThread.find({ status: 'active', isMerged: false })
-      .select('title body category')
-      .lean();
-    
-    // Spelling correction and category detection
-    const vocab = buildVocabulary(threads);
+    // Two-pass search: first check official FAQs (authoritative), then fall back to all threads
+    const [officialThreads, allThreads] = await Promise.all([
+      FAQThread.find({ status: 'active', isMerged: false, isOfficial: true })
+        .select('title body category faqNumber')
+        .lean(),
+      FAQThread.find({ status: 'active', isMerged: false })
+        .select('title body category faqNumber')
+        .lean()
+    ]);
+
+    // Build vocab from all threads for spell correction
+    const vocab = buildVocabulary(allThreads);
     const { correctedQuery, corrections } = correctSpelling(userQuery, vocab);
     
     const queryTokens = tokenize(correctedQuery);
@@ -399,24 +415,42 @@ async function retrieveRAGResponse(userQuery) {
     const queryClean = correctedQuery.toLowerCase().replace(/[^\w\s]/g, '').trim();
     const queryCategory = classifyQueryCategory(correctedQuery);
     
-    const rankedMatches = threads
-      .map(thread => ({
-        thread,
-        score: computeSemanticScore(queryTokens, queryClean, thread, queryCategory)
-      }))
+    // PASS 1: Search official FAQs first (authoritative, should be consulted first)
+    const officialMatches = officialThreads
+      .map(thread => ({ thread, score: computeSemanticScore(queryTokens, queryClean, thread, queryCategory) }))
       .filter(match => match.score > 0.15)
-      .sort((left, right) => right.score - left.score);
-    const bestMatch = rankedMatches[0]?.thread || null;
-    const highestScore = rankedMatches[0]?.score || 0;
-    const suggestions = rankedMatches.slice(0, 2).map(match => ({
+      .sort((a, b) => b.score - a.score);
+
+    let bestMatch = officialMatches[0]?.thread || null;
+    let highestScore = officialMatches[0]?.score || 0;
+    let suggestions = officialMatches.slice(0, 2).map(match => ({
       threadId: match.thread._id,
       title: match.thread.title,
       category: getDisplayGroup(match.thread.category),
       confidence: Math.round(match.score * 100)
     }));
 
-    // Score threshold: 0.25 (lenient for fuzzy search match)
-    if (bestMatch && highestScore > 0.25) {
+    // PASS 2: Fall back to all threads if no good official match (score < 0.2)
+    if (!bestMatch || highestScore < 0.2) {
+      const allMatches = allThreads
+        .map(thread => ({ thread, score: computeSemanticScore(queryTokens, queryClean, thread, queryCategory) }))
+        .filter(match => match.score > 0.15)
+        .sort((a, b) => b.score - a.score);
+      if (allMatches.length > 0) {
+        bestMatch = allMatches[0].thread;
+        highestScore = allMatches[0].score;
+        suggestions = allMatches.slice(0, 2).map(match => ({
+          threadId: match.thread._id,
+          title: match.thread.title,
+          category: getDisplayGroup(match.thread.category),
+          confidence: Math.round(match.score * 100)
+        }));
+      }
+    }
+
+    // RAG confidence threshold: 0.2 for official FAQs, 0.35 for community fallback
+    const activeThreshold = bestMatch?.isOfficial ? 0.2 : 0.35;
+    if (bestMatch && highestScore >= activeThreshold) {
       const chosenAnswer = await Answer.findOne({ threadId: bestMatch._id })
         .sort({ isVerified: -1, isPinned: -1, createdAt: 1 })
         .select('body')
@@ -437,6 +471,7 @@ async function retrieveRAGResponse(userQuery) {
         answer: `${spellingCorrectionNotice}${chatbotAnswer}`,
         confidence: Math.round(highestScore * 100),
         threadId: bestMatch._id,
+        faqNumber: bestMatch.faqNumber || null,
         category: getDisplayGroup(bestMatch.category),
         sourceTitle: bestMatch.title,
         suggestions,
@@ -455,6 +490,7 @@ async function retrieveRAGResponse(userQuery) {
       answer: `${spellingCorrectionNotice}No confident answer found. Try a related FAQ or ask the community.`,
       confidence: Math.round(highestScore * 100),
       threadId: null,
+      faqNumber: null,
       suggestions,
       suggestThread: true
     };
@@ -469,9 +505,242 @@ async function retrieveRAGResponse(userQuery) {
   }
 }
 
+/**
+ * Auto-Analyzer: Analyzes a newly submitted or edited FAQ and generates
+ * smart metadata — category, priority, tags, keywords, summary,
+ * and structured body formatting.
+ */
+function analyzeFAQ(title, body) {
+  const text = `${title} ${body}`.toLowerCase();
+
+  // ── 1. Keywords ───────────────────────────────────────────────────────
+  const vocab = new Set([
+    'internship', 'vins', 'vicharanashala', 'noc', 'certificate', 'bonafide', 'attendance',
+    'leave', 'stipend', 'payment', 'deadline', 'assignment', 'lab', 'mentor', 'project',
+    'github', 'wifi', 'technical', 'bug', 'error', 'login', 'selection', 'interview',
+    'offer', 'stipend', ' Joining ', 'joining', 'joining date', 'start date', 'profile',
+    'resume', 'portfolio', 'salary', 'recruiter', 'vibe', 'portal', 'vled', 'samagama',
+    'announcement', 'meeting', 'standup', 'stand-ups', 'schedule', 'timing', 'code',
+    'repo', 'branch', 'commit', 'pull request', 'review', 'feedback', 'evaluation',
+    'grade', 'marks', 'credit', 'report', 'submission', 'upload', 'download', 'file',
+    'document', 'pdf', 'screenshot', 'form', 'google', 'form', 'link', 'zoom', 'meet',
+    'doubt', 'question', 'help', 'support', 'issue', 'problem', 'clarification',
+    'important', 'urgent', 'asap', 'emergency', 'immediately', 'critical'
+  ]);
+
+  const keywordCandidates = new Set();
+  const allWords = text.replace(/[^\w\s]/g, '').split(/\s+/);
+  allWords.forEach(w => {
+    if (w.length > 3 && vocab.has(w)) keywordCandidates.add(w);
+  });
+
+  const keywords = [...keywordCandidates].slice(0, 10);
+
+  // ── 2. Category Hint (override from classifyQueryCategory) ────────────
+  const categoryHint = classifyQueryCategory(`${title} ${body}`);
+
+  // ── 3. Priority Detection ─────────────────────────────────────────────
+  const urgencySignals = [
+    { pattern: /urgent|asap|immediately|emergency|critical|important|deadline/i, score: 3 },
+    { pattern: /how long|when will|by when|within|before|today|tonight|tomorrow/i, score: 2 },
+    { pattern: /can i|am i allowed|permission|approval|sign|clearance/i, score: 1 },
+    { pattern: /what is|how do|how to|where is|why|i need/i, score: 0 }
+  ];
+
+  let priorityScore = urgencySignals.reduce((acc, s) => {
+    return acc + (s.pattern.test(text) ? s.score : 0);
+  }, 0);
+
+  let priority = 'medium';
+  if (priorityScore >= 4) priority = 'urgent';
+  else if (priorityScore >= 2) priority = 'high';
+  else if (priorityScore <= 0 && /what is|how do|explain|describe/i.test(text)) priority = 'low';
+
+  // ── 4. Summary ─────────────────────────────────────────────────────────
+  const questionWords = /\b(how|what|when|where|why|who|which|can|could|should|would|is|are|do|does)\b/;
+  const firstQuestionMatch = body.match(questionWords);
+  const bodyClean = body.replace(/\s+/g, ' ').trim();
+  let summary = '';
+  if (firstQuestionMatch) {
+    const qidx = body.indexOf(firstQuestionMatch[0]);
+    const afterQ = bodyClean.slice(qidx);
+    const endPunct = afterQ.search(/[.!?] /);
+    summary = endPunct > 10 && endPunct < 200
+      ? afterQ.slice(0, endPunct + 1).trim()
+      : bodyClean.slice(0, Math.min(150, bodyClean.length)).trim();
+  } else {
+    summary = bodyClean.slice(0, Math.min(150, bodyClean.length)).trim();
+  }
+
+  // ── 5. Structured Body Parsing ────────────────────────────────────────
+  const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+  const steps = [];
+  let instruction = null;
+  let note = null;
+
+  const instructionRx = /^(how to|how do i|steps? to|process|to|simply|just|here'?s|follow these|here are)/i;
+  const noteRx = /^(note|important|note:|important:|warning|caution|tip|pro tip|hint|note -)/i;
+
+  const instructionCandidates = lines.filter(l => instructionRx.test(l));
+  if (instructionCandidates.length > 0) {
+    instruction = instructionCandidates[0].replace(/^[\d.)*-]+\s*/, '').trim();
+    lines.splice(lines.indexOf(instructionCandidates[0]), 1);
+  }
+
+  const noteCandidates = lines.filter(l => noteRx.test(l));
+  if (noteCandidates.length > 0) {
+    note = noteCandidates[0].replace(/^[\d.)*-]+\s*/, '').trim();
+    lines.splice(lines.indexOf(noteCandidates[0]), 1);
+  }
+
+  lines.forEach(line => {
+    const cleaned = line.replace(/^[\d.)*-]+\s*/, '').trim();
+    if (cleaned.length > 10) steps.push(cleaned);
+  });
+
+  // ── 6. Tags ───────────────────────────────────────────────────────────
+  const tagRules = [
+    { keywords: ['noc', 'certificate', 'bonafide', 'signing', 'clearance'], tag: 'NOC & Certificates' },
+    { keywords: ['stipend', 'payment', 'salary', 'bank', 'fee'], tag: 'Payments & Salary' },
+    { keywords: ['attendance', 'leave', 'absent', 'exemption', 'class', 'standup'], tag: 'Attendance' },
+    { keywords: ['deadline', 'due date', 'last date', 'submit', 'submission'], tag: 'Deadlines' },
+    { keywords: ['assignment', 'lab', 'homework', 'task', 'weekly'], tag: 'Assignments' },
+    { keywords: ['project', 'github', 'code', 'repo', 'pull request'], tag: 'Projects & Code' },
+    { keywords: ['mentor', 'guide', 'supervisor'], tag: 'Mentorship' },
+    { keywords: ['wifi', 'technical', 'bug', 'error', 'server', 'login', 'portal'], tag: 'Technical Support' },
+    { keywords: ['internship', 'intern', 'joining', 'start date', 'profile'], tag: 'Internship' },
+    { keywords: ['selection', 'interview', 'offer', 'process'], tag: 'Selection Process' },
+    { keywords: ['announcement', 'news', 'update', 'notice'], tag: 'Announcements' },
+    { keywords: ['vibe', 'vled', 'portal', 'lms', 'course'], tag: 'Platform' },
+    { keywords: ['doubt', 'help', 'support', 'question'], tag: 'Help & Support' }
+  ];
+
+  const tags = [];
+  tagRules.forEach(rule => {
+    if (rule.keywords.some(k => text.includes(k))) tags.push(rule.tag);
+  });
+
+  // Add category as a tag
+  if (categoryHint !== 'General Queries') tags.push(categoryHint);
+
+  // ── 7. Confidence Score ────────────────────────────────────────────────
+  const hasTitle = title.trim().length > 5;
+  const hasBody = body.trim().length > 20;
+  const hasSteps = steps.length > 0;
+  const hasKeywords = keywords.length > 0;
+  const isQuestion = /^(what|how|why|when|where|who|can|should|is|do)/i.test(title.trim());
+  const confidence = Math.min(1.0, (
+    (hasTitle ? 0.1 : 0) +
+    (hasBody ? 0.2 : 0) +
+    (hasSteps ? 0.15 : 0) +
+    (hasKeywords ? 0.15 : 0) +
+    (isQuestion ? 0.1 : 0) +
+    (tags.length > 0 ? 0.15 : 0) +
+    (priority !== 'medium' ? 0.15 : 0)
+  ));
+
+  return {
+    categoryHint,
+    priority,
+    priorityScore,
+    keywords,
+    tags: [...new Set(tags)].slice(0, 8),
+    summary: summary || bodyClean.slice(0, 150).trim(),
+    structuredBody: {
+      instruction: instruction || null,
+      steps: steps.slice(0, 10),
+      note: note || null
+    },
+    analysisMetadata: {
+      analyzedAt: new Date(),
+      confidence: Math.round(confidence * 100) / 100,
+      categoryHint,
+      priorityScore,
+      keywords
+    }
+  };
+}
+
+/**
+ * Generates paraphrased versions of a user query to improve search recall.
+ * Strategy:
+ *  1. Synonym canonicalisation  – "how do i get noc" → "how do i noc" (get→noc)
+ *  2. Question-form flip        – "what is stipend policy" → "how do i stipend policy"
+ *  3. Keyword-strip form         – removes question words & pronouns for pure keyword match
+ */
+function paraphraseQuery(query) {
+  const clean = query.toLowerCase().replace(/[^\w\s]/g, '').trim();
+  if (clean.length < 4) return [];
+
+  const tokens = clean.split(/\s+/).filter(t => t.length > 1 && !STOPWORDS.has(t));
+  const paraphrases = [];
+
+  // ── 1. Synonym canonicalisation ───────────────────────────────────────
+  let para1 = clean;
+  tokens.forEach(token => {
+    for (const [base, syns] of Object.entries(SYNONYMS)) {
+      if (syns.includes(token) && !para1.includes(base)) {
+        const re = new RegExp(`\\b${token}\\b`, 'g');
+        para1 = para1.replace(re, base);
+        break;
+      }
+    }
+  });
+  if (para1 !== clean) paraphrases.push(para1);
+
+  // ── 2. Question-form flips (handles common "how ↔ what" / "can ↔ am i allowed" pairs) ──
+  // These transformations are only applied when the captured fragment forms a coherent noun-phrase.
+  const okNounPhrase = fragment => {
+    // Fragment should not start with a bare verb that makes the flipped form nonsensical
+    const badStarts = /^(get|give|take|do|make|go|come|see|know|find|submit|apply|pay|login|connect|join|leave|miss)\b/i;
+    return !badStarts.test(fragment);
+  };
+
+  const starters = [
+    { pattern: /^how do i (.+)/i, replacer: m => `what is ${m}`, condition: okNounPhrase },
+    { pattern: /^how can i (.+)/i, replacer: m => `what is needed for ${m}`, condition: okNounPhrase },
+    { pattern: /^can i (.+)/i, replacer: m => `am i allowed to ${m}` },
+    { pattern: /^do i need to (.+)/i, replacer: m => `is it required to ${m}` },
+    { pattern: /^where do i (.+)/i, replacer: m => `how to ${m}` },
+    { pattern: /^when do i (.+)/i, replacer: m => `what is the deadline for ${m}` },
+    { pattern: /^why (.+)/i, replacer: m => `reason for ${m}` },
+    { pattern: /^who (.+)/i, replacer: m => `who is responsible for ${m}` },
+    // Reverse flips (only if noun phrase checks pass)
+    { pattern: /^what is (.+)/i, replacer: m => `how do i ${m}`, condition: okNounPhrase },
+  ];
+
+  starters.forEach(({ pattern, replacer, condition }) => {
+    const match = clean.match(pattern);
+    if (!match) return;
+    const rest = match[1];
+    if (condition && !condition(rest)) return;
+    try {
+      const result = replacer(rest);
+      if (result && result.length > 2 && !paraphrases.includes(result)) {
+        paraphrases.push(result);
+      }
+    } catch { /* skip */ }
+  });
+
+  // ── 3. Keyword-strip form ───────────────────────────────────────────────
+  const stripped = clean
+    .replace(/\b(how|what|when|where|why|who|which|can|could|should|would|do|does|is|are|was|were|am|if)\b/g, '')
+    .replace(/\b(i|my|me|we|our|the|a|an|to|for|in|on|at|by)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (stripped.length > 3 && stripped !== clean && !paraphrases.includes(stripped)) {
+    paraphrases.push(stripped);
+  }
+
+  return paraphrases.slice(0, 3);
+}
+
 module.exports = {
   checkSemanticSimilarity,
   scoreContentModeration,
   retrieveRAGResponse,
-  classifyQueryCategory
+  classifyQueryCategory,
+  tokenize,
+  paraphraseQuery,
+  analyzeFAQ
 };

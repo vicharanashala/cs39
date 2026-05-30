@@ -3,6 +3,34 @@ const router = express.Router();
 const { FAQThread, Answer, User, SPTransaction } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
+// GET /api/profile/:userId/sp-history - Paginated SP transaction history
+router.get('/:userId/sp-history', authMiddleware, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const total = await SPTransaction.countDocuments({ userId: req.params.userId });
+    const transactions = await SPTransaction.find({ userId: req.params.userId })
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      transactions,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('SP history error:', error.message);
+    res.status(500).json({ message: 'Error retrieving SP history' });
+  }
+});
+
 router.get('/:userId', authMiddleware, async (req, res) => {
   try {
     const targetUserId = req.params.userId;

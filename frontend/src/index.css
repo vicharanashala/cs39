@@ -80,3 +80,109 @@
 .animate-slide-in {
   animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Soft pink / black page theme for home and auth screens */
+.soft-page {
+  min-height: 100%;
+  color: #33242b;
+}
+
+.soft-page-bg {
+  background:
+    radial-gradient(circle at 16% 8%, rgba(255, 204, 222, 0.7), transparent 28%),
+    radial-gradient(circle at 84% 14%, rgba(255, 232, 239, 0.85), transparent 32%),
+    linear-gradient(135deg, #fff5f8 0%, #fde7ef 48%, #f8d8e4 100%);
+}
+
+.dark .soft-page-bg {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 123, 172, 0.12), transparent 28%),
+    radial-gradient(circle at 86% 12%, rgba(120, 47, 78, 0.16), transparent 34%),
+    linear-gradient(135deg, #030303 0%, #09090b 52%, #000000 100%);
+  color: #fff5f8;
+}
+
+.soft-panel,
+.soft-page [class*="bg-white"] {
+  background-color: rgba(255, 247, 250, 0.82) !important;
+  border-color: rgba(232, 159, 186, 0.52) !important;
+  box-shadow: 0 20px 50px rgba(136, 65, 92, 0.14);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.dark .soft-panel,
+.dark .soft-page [class*="dark:bg-brand"],
+.dark .soft-page [class*="bg-white"] {
+  background-color: rgba(14, 14, 16, 0.9) !important;
+  border-color: rgba(255, 203, 221, 0.16) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.42);
+}
+
+.soft-page input,
+.soft-page textarea,
+.soft-page select,
+.soft-page [class*="bg-slate-50"] {
+  background-color: rgba(255, 250, 252, 0.92) !important;
+  border-color: rgba(230, 159, 186, 0.65) !important;
+}
+
+.dark .soft-page input,
+.dark .soft-page textarea,
+.dark .soft-page select,
+.dark .soft-page [class*="dark:bg-brand-950"],
+.dark .soft-page [class*="dark:bg-brand-955"] {
+  background-color: rgba(7, 7, 9, 0.92) !important;
+  border-color: rgba(255, 203, 221, 0.16) !important;
+}
+
+.soft-page h1,
+.soft-page h2,
+.soft-page h3,
+.soft-page [class*="text-slate-900"],
+.soft-page [class*="text-slate-800"] {
+  color: #30212a !important;
+}
+
+.dark .soft-page h1,
+.dark .soft-page h2,
+.dark .soft-page h3,
+.dark .soft-page [class*="dark:text-white"],
+.dark .soft-page [class*="dark:text-slate-100"] {
+  color: #fff5f8 !important;
+}
+
+.soft-page label,
+.soft-page [class*="text-slate-500"],
+.soft-page [class*="text-slate-400"] {
+  color: #7b5261 !important;
+}
+
+.dark .soft-page label,
+.dark .soft-page [class*="dark:text-slate-400"],
+.dark .soft-page [class*="dark:text-slate-300"] {
+  color: #e7d5dd !important;
+}
+
+.soft-primary {
+  background: linear-gradient(135deg, #e85f98, #b83f74) !important;
+  color: #fff7fb !important;
+  box-shadow: 0 14px 30px rgba(184, 63, 116, 0.22);
+}
+
+.soft-primary:hover {
+  filter: brightness(1.05);
+}
+
+.dark .soft-primary {
+  background: linear-gradient(135deg, #ff8fbd, #f2c7d8) !important;
+  color: #09090b !important;
+}
+
+.soft-accent {
+  color: #b83f74 !important;
+}
+
+.dark .soft-accent {
+  color: #ffc4da !important;
+}

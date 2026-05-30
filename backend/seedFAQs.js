@@ -26,8 +26,22 @@ async function seedOfficialFAQs() {
 
     console.log(`[FAQ Seeder] Starting seeding of ${seedData.length} official FAQs...`);
 
-    let seededCount = 0;
+    // Track per-section counters for auto-numbering
+    const sectionCounters = {};
     for (const item of seedData) {
+      const sec = item.section || '0';
+      sectionCounters[sec] = (sectionCounters[sec] || 0) + 1;
+    }
+    // Reset and rebuild counters in order
+    const resetCounters = {};
+
+    let seededCount = 0;
+    let updateCount = 0;
+    for (const item of seedData) {
+      const sec = item.section || '0';
+      resetCounters[sec] = (resetCounters[sec] || 0) + 1;
+      const faqNumber = `${sec}.${resetCounters[sec]}`;
+
       // Check if thread already exists
       let thread = await FAQThread.findOne({ title: item.title, isOfficial: true });
       if (!thread) {
@@ -38,6 +52,7 @@ async function seedOfficialFAQs() {
           author: admin._id,
           authorName: admin.username,
           isOfficial: true,
+          faqNumber,
           repliesCount: 1,
           status: 'active'
         });
@@ -55,6 +70,12 @@ async function seedOfficialFAQs() {
         await answer.save();
         seededCount++;
       } else {
+        // Back-fill faqNumber if missing
+        if (!thread.faqNumber) {
+          thread.faqNumber = faqNumber;
+          await thread.save();
+          updateCount++;
+        }
         // Ensure answer is verified
         const answer = await Answer.findOne({ threadId: thread._id, isVerified: true });
         if (!answer) {
@@ -83,7 +104,7 @@ async function seedOfficialFAQs() {
       }
     }
 
-    console.log(`[FAQ Seeder] Completed. Seeded ${seededCount} new official FAQs.`);
+    console.log(`[FAQ Seeder] Completed. Seeded ${seededCount} new, updated ${updateCount} existing official FAQs.`);
   } catch (error) {
     console.error('[FAQ Seeder] Seeding error:', error.message);
   }

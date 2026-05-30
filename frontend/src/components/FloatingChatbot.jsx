@@ -83,10 +83,17 @@ const FloatingChatbot = () => {
     submitQuery(input);
   };
 
-  const openThread = (threadId) => {
+  const openThread = (threadId, faqNumber) => {
     setIsOpen(false);
+    setSelectedThreadId(null);
     setActiveTab('feed');
-    setSelectedThreadId(threadId);
+    if (faqNumber) {
+      // Official FAQ — scroll to the numbered anchor in FAQFeed
+      window.location.hash = `faq-${faqNumber}`;
+    } else {
+      // Community thread — open full ThreadDetail view
+      setSelectedThreadId(threadId);
+    }
   };
 
   return (
@@ -121,11 +128,16 @@ const FloatingChatbot = () => {
                       <span className="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-brand-950 text-[9px] font-bold text-slate-500">
                         {msg.category}
                       </span>
+                      {msg.faqNumber && (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-brand-500/10 text-[9px] font-mono font-bold text-brand-600 dark:text-brand-300 border border-brand-500/30">
+                          #{msg.faqNumber}
+                        </span>
+                      )}
                       <button
-                        onClick={() => openThread(msg.threadId)}
+                        onClick={() => openThread(msg.threadId, msg.faqNumber)}
                         className="w-full py-1.5 px-2 text-left bg-brand-500/10 text-brand-600 dark:text-brand-300 rounded font-bold text-[10px]"
                       >
-                        View source: {msg.sourceTitle}
+                        {msg.faqNumber ? `Jump to #${msg.faqNumber}: ` : 'View source: '}{msg.sourceTitle}
                       </button>
                     </div>
                   )}
@@ -135,7 +147,7 @@ const FloatingChatbot = () => {
                       {msg.suggestions.map((suggestion) => (
                         <button
                           key={suggestion.threadId}
-                          onClick={() => openThread(suggestion.threadId)}
+                          onClick={() => openThread(suggestion.threadId, null)}
                           className="w-full py-1.5 px-2 text-left border border-slate-200 dark:border-brand-800 rounded text-[10px] hover:border-brand-500"
                         >
                           {suggestion.title} ({suggestion.confidence}%)

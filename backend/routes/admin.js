@@ -1,12 +1,108 @@
 const express = require('express');
 const router = express.Router();
-const { FAQThread, Answer, User, Notification, SPTransaction, Comment } = require('../models/Schemas');
+const { FAQThread, Answer, User, Notification, SPTransaction, Comment, SearchLog, UserActivity, Feedback, SystemMetrics, Bookmark } = require('../models/Schemas');
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 const { updateReputation } = require('../services/reputation');
+const { analyzeFAQ, scoreContentModeration } = require('../services/aiService');
 
 // Apply admin guard to all routes in this file
 router.use(authMiddleware);
 router.use(requireRole('admin'));
+
+// GET /api/admin/moderation-queue - User-submitted FAQs awaiting publication
+router.get('/moderation-queue', async (req, res) => {
+  try {
+    const queue = await FAQThread.find({
+      status: { $in: ['pending_review', 'flagged'] },
+      isMerged: false
+    })
+      .sort({ submittedForReviewAt: 1, createdAt: 1 })
+      .populate('author', 'username email spPoints trustScore');
+
+    res.json(queue);
+  } catch (error) {
+    console.error('Fetch moderation queue error:', error.message);
+    res.status(500).json({ message: 'Error retrieving moderation queue' });
+  }
+});
+
+// PUT /api/admin/moderation-queue/:threadId - Edit FAQ before review decision
+router.put('/moderation-queue/:threadId', async (req, res) => {
+  try {
+    const thread = await FAQThread.findById(req.params.threadId);
+    if (!thread) return res.status(404).json({ message: 'FAQ not found' });
+    if (!['pending_review', 'flagged'].includes(thread.status)) {
+      return res.status(400).json({ message: 'Only queued FAQs can be edited here' });
+    }
+
+    let { title, body, category } = req.body;
+    title = String(title || '').trim().slice(0, 180);
+    body = String(body || '').trim().slice(0, 4000);
+    if (!title || !body) {
+      return res.status(400).json({ message: 'Title and body are required' });
+    }
+
+    const aiAnalysis = analyzeFAQ(title, body);
+    const aiScores = scoreContentModeration(body, title);
+
+    thread.title = title;
+    thread.body = body;
+    thread.category = category || thread.category;
+    thread.priority = aiAnalysis.priority;
+    thread.tags = aiAnalysis.tags;
+    thread.summary = aiAnalysis.summary;
+    thread.structuredBody = aiAnalysis.structuredBody;
+    thread.analysisMetadata = aiAnalysis.analysisMetadata;
+    thread.aiScores = aiScores;
+    thread.updatedAt = Date.now();
+    await thread.save();
+
+    res.json(thread);
+  } catch (error) {
+    console.error('Edit queued FAQ error:', error.message);
+    res.status(500).json({ message: 'Error updating queued FAQ' });
+  }
+});
+
+// POST /api/admin/moderation-queue/:threadId/review - Approve or reject publication
+router.post('/moderation-queue/:threadId/review', async (req, res) => {
+  try {
+    const { action, reason } = req.body;
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Review action must be approve or reject' });
+    }
+
+    const thread = await FAQThread.findById(req.params.threadId);
+    if (!thread) return res.status(404).json({ message: 'FAQ not found' });
+    if (!['pending_review', 'flagged'].includes(thread.status)) {
+      return res.status(400).json({ message: 'FAQ is not awaiting review' });
+    }
+
+    thread.reviewedBy = req.user._id;
+    thread.reviewedAt = Date.now();
+    thread.rejectionReason = action === 'reject' ? String(reason || '').trim().slice(0, 500) || 'Not approved for publication.' : null;
+    thread.status = action === 'approve' ? 'active' : 'rejected';
+    if (action === 'approve') {
+      thread.aiScores.toxicityScore = 0;
+      thread.aiScores.spamProbability = 0;
+    }
+    await thread.save();
+
+    await Notification.create({
+      userId: thread.author,
+      title: action === 'approve' ? 'FAQ Published' : 'FAQ Not Published',
+      message: action === 'approve'
+        ? `Your FAQ "${thread.title.substring(0, 60)}" has been approved and published.`
+        : `Your FAQ "${thread.title.substring(0, 60)}" was rejected. ${thread.rejectionReason}`,
+      type: 'verification'
+    });
+
+    res.json({ message: `FAQ ${action === 'approve' ? 'approved' : 'rejected'} successfully`, thread });
+  } catch (error) {
+    console.error('Review queued FAQ error:', error.message);
+    res.status(500).json({ message: 'Error reviewing queued FAQ' });
+  }
+});
 
 // POST /api/admin/verify-answer/:ansId - Verify final answer
 router.post('/verify-answer/:ansId', async (req, res) => {
@@ -48,6 +144,46 @@ router.post('/verify-answer/:ansId', async (req, res) => {
     if (aAuthorSpNum > 0) {
       await updateReputation(answer.author, aAuthorSpNum, 'verified_answer');
     }
+
+    // 5. Advance FAQ tracker to verified status
+    const { FAQTracker } = require('../models/Schemas');
+    const STATUS_MAP = {
+      'received': 'Question Received', 'ai_analyzing': 'AI Analyzing',
+      'expert_review': 'Expert Reviewing', 'verified': 'Answer Verified',
+      'completed': 'Solution Completed'
+    };
+    let tracker = await FAQTracker.findOne({ threadId: thread._id });
+    if (!tracker) {
+      const ts = new Date();
+      tracker = await FAQTracker.create({
+        threadId: thread._id, status: 'verified',
+        steps: Object.keys(STATUS_MAP).map(s => ({ status: s, label: STATUS_MAP[s], timestamp: ts }))
+      });
+    } else if (tracker.status !== 'verified') {
+      tracker.steps.push({ status: 'verified', label: 'Answer Verified', timestamp: new Date() });
+      tracker.status = 'verified';
+      tracker.updatedAt = new Date();
+      await tracker.save();
+      io.emit('faq_status_update', { threadId: thread._id.toString(), status: 'verified', steps: tracker.steps });
+    }
+
+    // Emit real-time events
+    const io = req.app.get('io');
+    if (io) {
+      // Notify the answer author their answer was verified
+      io.to(answer.author.toString()).emit('answer_verified', {
+        threadId: thread._id,
+        answerId: answer._id,
+        threadTitle: thread.title
+      });
+      // Notify the question author the thread is now official
+      io.to(thread.author.toString()).emit('notification', {
+        title: '✅ Thread Promoted to Official FAQ',
+        message: `Your question is now an official FAQ. +${qAuthorSpNum} SP awarded.`,
+        type: 'verification'
+      });
+    }
+        io.emit('faq_status_update', { threadId: thread._id.toString(), status: 'verified', steps: tracker.steps });
 
     res.json({ 
       message: 'Answer verified successfully. FAQ is now locked, category updated, and SP awarded.', 
@@ -208,7 +344,7 @@ router.get('/dashboard-stats', async (req, res) => {
     const usersCount = await User.countDocuments({ role: 'student' });
     const threadsCount = await FAQThread.countDocuments({ status: 'active', isMerged: false });
     const verifiedAnswersCount = await Answer.countDocuments({ isVerified: true });
-    const pendingApprovalCount = await FAQThread.countDocuments({ status: 'flagged' }) + 
+    const pendingApprovalCount = await FAQThread.countDocuments({ status: { $in: ['pending_review', 'flagged'] } }) + 
       await Answer.countDocuments({ 
         $or: [
           { 'aiScores.toxicityScore': { $gte: 0.5 } },
@@ -248,6 +384,221 @@ router.get('/dashboard-stats', async (req, res) => {
   } catch (error) {
     console.error('Fetch admin stats error:', error.message);
     res.status(500).json({ message: 'Error fetching admin dashboard statistics' });
+  }
+});
+
+// ── ANALYTICS ROUTES ──────────────────────────────────────────────────────────
+
+// GET /api/admin/analytics/most-searched — Top searched FAQ queries
+router.get('/analytics/most-searched', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    // Aggregate searches by normalized query text
+    const topSearches = await SearchLog.aggregate([
+      { $group: { _id: { $toLower: '$query' }, count: { $sum: 1 }, queries: { $push: '$query' } } },
+      { $sort: { count: -1 } },
+      { $limit: limit },
+      { $project: { query: '$_id', count: 1, _id: 0 } }
+    ]);
+    // Also get top clicked threads from search logs
+    const topClicked = await SearchLog.aggregate([
+      { $match: { clickedThreadId: { $ne: null } } },
+      { $group: { _id: '$clickedThreadId', clickCount: { $sum: 1 } } },
+      { $sort: { clickCount: -1 } },
+      { $limit: 5 },
+      { $lookup: { from: 'faqthreads', localField: '_id', foreignField: '_id', as: 'thread' } },
+      { $unwind: '$thread' },
+      { $project: { threadId: '$_id', title: '$thread.title', clickCount: 1, _id: 0 } }
+    ]);
+    res.json({ topSearches, topClicked });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching most searched FAQs' });
+  }
+});
+
+// GET /api/admin/analytics/user-activity — User activity summary
+router.get('/analytics/user-activity', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    // Action breakdown
+    const actionBreakdown = await UserActivity.aggregate([
+      { $match: { createdAt: { $gte: since } } },
+      { $group: { _id: '$action', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    // Daily active users trend
+    const dailyActive = await UserActivity.aggregate([
+      { $match: { createdAt: { $gte: since } } },
+      { $group: { 
+        _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+        uniqueUsers: { $addToSet: '$userId' },
+        totalActions: { $sum: 1 }
+      } },
+      { $project: { date: '$_id', userCount: { $size: '$uniqueUsers' }, totalActions: 1, _id: 0 } },
+      { $sort: { date: 1 } }
+    ]);
+    // Top active users
+    const topActiveUsers = await UserActivity.aggregate([
+      { $match: { createdAt: { $gte: since } } },
+      { $group: { _id: '$userId', actionCount: { $sum: 1 } } },
+      { $sort: { actionCount: -1 } },
+      { $limit: 10 },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+      { $unwind: '$user' },
+      { $project: { userId: '$_id', username: '$user.username', actionCount: 1, _id: 0 } }
+    ]);
+    // Total bookmarks & upvotes in period
+    const engagementCounts = await UserActivity.aggregate([
+      { $match: { createdAt: { $gte: since }, action: { $in: ['bookmark', 'upvote'] } } },
+      { $count: 'total' }
+    ]);
+    res.json({ actionBreakdown, dailyActive, topActiveUsers, totalEngagements: engagementCounts[0]?.total || 0 });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user activity analytics' });
+  }
+});
+
+// GET /api/admin/analytics/feedback — Feedback & sentiment analysis
+router.get('/analytics/feedback', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    // Rating distribution
+    const ratingDistribution = await Feedback.aggregate([
+      { $group: { _id: '$rating', count: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+    // Sentiment breakdown
+    const sentimentBreakdown = await Feedback.aggregate([
+      { $group: { _id: '$sentiment', count: { $sum: 1 } } }
+    ]);
+    // Average rating
+    const avgRatingResult = await Feedback.aggregate([
+      { $group: { _id: null, avgRating: { $avg: '$rating' } } }
+    ]);
+    // Recent feedback with thread & answer context
+    const recentFeedback = await Feedback.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('answerId', 'body')
+      .populate('threadId', 'title');
+    // Low-rated answers (1-2 stars) needing attention
+    const lowRatedFeedback = await Feedback.find({ rating: { $lte: 2 } })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('answerId', 'body')
+      .populate('threadId', 'title');
+    res.json({ 
+      ratingDistribution, 
+      sentimentBreakdown, 
+      avgRating: avgRatingResult[0]?.avgRating || 0,
+      recentFeedback, 
+      lowRatedFeedback 
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching feedback analytics' });
+  }
+});
+
+// GET /api/admin/analytics/trending — Trending topics based on search & view activity
+router.get('/analytics/trending', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    // Top threads by view activity
+    const trendingByViews = await UserActivity.aggregate([
+      { $match: { createdAt: { $gte: since }, action: 'view_thread' } },
+      { $group: { _id: '$metadata.threadId', viewCount: { $sum: 1 } } },
+      { $sort: { viewCount: -1 } },
+      { $limit: 10 },
+      { $lookup: { from: 'faqthreads', localField: '_id', foreignField: '_id', as: 'thread' } },
+      { $unwind: '$thread' },
+      { $project: { threadId: '$_id', title: '$thread.title', category: '$thread.category', viewCount: 1, _id: 0 } }
+    ]);
+    // Top threads by search clicks
+    const trendingBySearch = await SearchLog.aggregate([
+      { $match: { clickedThreadId: { $ne: null }, createdAt: { $gte: since } } },
+      { $group: { _id: '$clickedThreadId', clickCount: { $sum: 1 } } },
+      { $sort: { clickCount: -1 } },
+      { $limit: 5 },
+      { $lookup: { from: 'faqthreads', localField: '_id', foreignField: '_id', as: 'thread' } },
+      { $unwind: '$thread' },
+      { $project: { threadId: '$_id', title: '$thread.title', category: '$thread.category', clickCount: 1, _id: 0 } }
+    ]);
+    // Rising queries (queries with increasing frequency)
+    const allSearches = await SearchLog.aggregate([
+      { $match: { createdAt: { $gte: since } } },
+      { $group: { _id: { $toLower: '$query' }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    res.json({ trendingByViews, trendingBySearch, risingQueries: allSearches });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching trending analytics' });
+  }
+});
+
+// GET /api/admin/analytics/system-performance — System performance & health
+router.get('/analytics/system-performance', async (req, res) => {
+  try {
+    // Current metrics snapshot
+    const latestMetrics = await SystemMetrics.findOne().sort({ timestamp: -1 });
+    // Recent uptime history (last 24h)
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const uptimeHistory = await SystemMetrics.find({ timestamp: { $gte: since24h } })
+      .sort({ timestamp: 1 })
+      .select('timestamp activeUsers avgResponseTimeMs errorRate uptimePercent');
+    // DB stats
+    const dbStats = {
+      totalUsers: await User.countDocuments(),
+      totalThreads: await FAQThread.countDocuments({ status: 'active' }),
+      totalAnswers: await Answer.countDocuments(),
+      totalBookmarks: await Bookmark.countDocuments(),
+      totalSearchLogs: await SearchLog.countDocuments()
+    };
+    // Error rate trend
+    const errorTrend = await SystemMetrics.find({ timestamp: { $gte: since24h } })
+      .sort({ timestamp: 1 })
+      .select('timestamp errorRate');
+    // Response time trend
+    const responseTrend = await SystemMetrics.find({ timestamp: { $gte: since24h } })
+      .sort({ timestamp: 1 })
+      .select('timestamp avgResponseTimeMs');
+    res.json({ latestMetrics, uptimeHistory, dbStats, errorTrend, responseTrend });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching system performance metrics' });
+  }
+});
+
+// POST /api/admin/analytics/log-search — Log a search query (called by frontend)
+router.post('/analytics/log-search', async (req, res) => {
+  try {
+    const { query, resultsCount, clickedThreadId, source } = req.body;
+    await SearchLog.create({
+      query: query?.trim(),
+      userId: req.user?.id || null,
+      resultsCount: resultsCount || 0,
+      clickedThreadId: clickedThreadId || null,
+      source: source || 'faq_feed'
+    });
+    res.json({ message: 'Search logged' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error logging search' });
+  }
+});
+
+// POST /api/admin/analytics/log-activity — Log a user action (called by frontend)
+router.post('/analytics/log-activity', async (req, res) => {
+  try {
+    const { action, metadata } = req.body;
+    await UserActivity.create({
+      userId: req.user?.id,
+      action,
+      metadata: metadata || {}
+    });
+    res.json({ message: 'Activity logged' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error logging activity' });
   }
 });
 

@@ -1,40 +1,56 @@
 const express = require('express');
 const router = express.Router();
-const { User } = require('../models/Schemas');
+const { User, SPTransaction } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { filter } = req.query; // 'daily' | 'weekly' | 'monthly' | 'all-time'
-    
-    // In a production app, you would filter by transaction timestamps.
-    // For this prototype, we'll fetch users sorted by SP points, but apply some mock variances 
-    // to simulate different filters and make the board change realistically!
-    let users = await User.find({ role: 'student' })
+    const { filter = 'all-time' } = req.query; // 'daily' | 'weekly' | 'monthly' | 'all-time'
+
+    // Compute real SP earned within the time window using SPTransaction records
+    let timeFilter = {};
+    const now = new Date();
+    if (filter === 'daily') {
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      timeFilter = { timestamp: { $gte: startOfDay } };
+    } else if (filter === 'weekly') {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - 7);
+      timeFilter = { timestamp: { $gte: startOfWeek } };
+    } else if (filter === 'monthly') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      timeFilter = { timestamp: { $gte: startOfMonth } };
+    }
+    // 'all-time' → no time filter (empty object returns all docs)
+
+    // Aggregate real SP totals per user within the time window
+    const spAggregates = await SPTransaction.aggregate([
+      { $match: timeFilter },
+      { $group: { _id: '$userId', periodSp: { $sum: '$pointsChange' } } }
+    ]);
+
+    const spMap = new Map(spAggregates.map(a => [a._id.toString(), a.periodSp]));
+
+    // Fetch all student users and enrich with real period SP
+    const users = await User.find({ role: 'student' })
       .select('username spPoints level trustScore contributionRating badges verifiedAnswersCount helpfulAnswersCount')
       .sort({ spPoints: -1 });
 
-    // Simulate different leaderboard views by injecting slight variation factors
-    let leaderboardData = users.map((user, idx) => {
-      let score = user.spPoints;
-      if (filter === 'daily') {
-        score = Math.max(0, Math.floor(score * 0.05) + (idx === 1 ? 15 : idx === 3 ? 10 : 0));
-      } else if (filter === 'weekly') {
-        score = Math.max(0, Math.floor(score * 0.2) + (idx === 0 ? 30 : idx === 2 ? 25 : 5));
-      } else if (filter === 'monthly') {
-        score = Math.max(0, Math.floor(score * 0.65) + (idx === 1 ? 50 : 10));
-      }
+    const leaderboardData = users.map(user => {
+      const periodSp = spMap.get(user._id.toString()) || 0;
+      const displaySp = filter === 'all-time' ? user.spPoints : periodSp;
       return {
         _id: user._id,
         username: user.username,
         level: user.level,
         contributionRating: user.contributionRating,
         badges: user.badges,
-        spPoints: score
+        spPoints: Math.max(0, displaySp),
+        periodSp: filter !== 'all-time' ? periodSp : undefined
       };
     });
 
-    // Re-sort because of score variance injections
+    // Sort by the relevant SP for the period
     leaderboardData.sort((a, b) => b.spPoints - a.spPoints);
 
     // Dynamic Weekly Missions Tracker based on current user's state
