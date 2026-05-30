@@ -1,8 +1,10 @@
 // routes/track.js — Live FAQ Tracking System
 const express = require('express');
 const router = express.Router();
-const { FAQTracker, FAQThread } = require('../models/Schemas');
+const jwt = require('jsonwebtoken');
+const { FAQTracker, FAQThread, User } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { getQueuePosition } = require('../services/queueService');
 
 // ── Status Definitions ────────────────────────────────────────────────────────
 const STATUS_STEPS = [
@@ -17,6 +19,28 @@ const STATUS_STEPS = [
 router.get('/:threadId', async (req, res) => {
   try {
     const { threadId } = req.params;
+    const thread = await FAQThread.findById(threadId);
+    if (!thread) {
+      return res.status(404).json({ message: 'Thread not found' });
+    }
+
+    if (thread.status !== 'active') {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(403).json({ message: 'Access denied.' });
+      }
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (!user || (String(thread.author) !== String(user._id) && user.role !== 'admin')) {
+          return res.status(403).json({ message: 'Access denied.' });
+        }
+      } catch (err) {
+        return res.status(403).json({ message: 'Access denied.' });
+      }
+    }
+
     let tracker = await FAQTracker.findOne({ threadId });
 
     if (!tracker) {
@@ -34,7 +58,9 @@ router.get('/:threadId', async (req, res) => {
       }
     }
 
-    res.json({ tracker, steps: STATUS_STEPS });
+    const queuePosition = await getQueuePosition(threadId);
+
+    res.json({ tracker, steps: STATUS_STEPS, queuePosition });
   } catch (error) {
     console.error('Tracker fetch error:', error.message);
     res.status(500).json({ message: 'Error fetching tracker status' });

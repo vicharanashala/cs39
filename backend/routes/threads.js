@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 const { FAQThread, Answer, Comment, User, Notification, SPTransaction } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { checkSemanticSimilarity, scoreContentModeration, tokenize, classifyQueryCategory, paraphraseQuery, analyzeFAQ } = require('../services/aiService');
 const { updateReputation } = require('../services/reputation');
+const { broadcastQueueUpdate } = require('../services/queueService');
 
 // ── In-memory semantic scorer (no extra DB call) ─────────────────────────
 function buildInMemoryVocab(threads) {
@@ -57,6 +59,25 @@ router.get('/search/paraphrase', async (req, res) => {
   } catch (error) {
     console.error('Paraphrase error:', error.message);
     res.status(500).json({ message: 'Error generating paraphrases' });
+  }
+});
+
+// GET /api/threads/last-updated - Get latest official FAQ update timestamp
+router.get('/last-updated', async (req, res) => {
+  try {
+    const latestThread = await FAQThread.findOne({
+      isOfficial: true,
+      status: 'active',
+      isMerged: false
+    })
+    .sort({ updatedAt: -1 })
+    .select('updatedAt');
+
+    const timestamp = latestThread ? new Date(latestThread.updatedAt).getTime() : 0;
+    res.json({ timestamp });
+  } catch (error) {
+    console.error('Error fetching last updated timestamp:', error.message);
+    res.status(500).json({ message: 'Error retrieving update timestamp' });
   }
 });
 
@@ -246,13 +267,39 @@ router.get('/trending', async (req, res) => {
   }
 });
 
+// Helper to check if requester has access to non-active thread
+async function verifyThreadAccess(thread, req) {
+  if (thread.status === 'active') return true;
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user) return false;
+
+    return String(thread.author) === String(user._id) || user.role === 'admin';
+  } catch (err) {
+    return false;
+  }
+}
+
 // GET /api/threads/:id - Single thread detail
 router.get('/:id', async (req, res) => {
   try {
     const thread = await FAQThread.findById(req.params.id);
-    if (!thread || thread.status !== 'active' || thread.isMerged) {
+    if (!thread || thread.isMerged) {
       return res.status(404).json({ message: 'Thread not found' });
     }
+
+    const hasAccess = await verifyThreadAccess(thread, req);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Access denied. This thread is under review.' });
+    }
+
     res.json(thread);
   } catch (error) {
     res.status(500).json({ message: 'Error retrieving thread detail' });
@@ -284,11 +331,7 @@ router.post('/create', authMiddleware, async (req, res) => {
     const aiAnalysis = analyzeFAQ(title, body);
     const aiScores = scoreContentModeration(body, title);
 
-<<<<<<< HEAD
     let threadStatus = req.user.role === 'admin' ? 'active' : 'pending_review';
-=======
-    let threadStatus = 'active';
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
     if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
       threadStatus = 'flagged';
     }
@@ -300,10 +343,7 @@ router.post('/create', authMiddleware, async (req, res) => {
       author: req.user._id,
       authorName: req.user.username,
       status: threadStatus,
-<<<<<<< HEAD
       submittedForReviewAt: Date.now(),
-=======
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
       priority: aiAnalysis.priority,
       tags: aiAnalysis.tags,
       summary: aiAnalysis.summary,
@@ -324,6 +364,12 @@ router.post('/create', authMiddleware, async (req, res) => {
         steps: [{ status: 'received', label: 'Question Received', timestamp: ts }]
       });
     } catch (e) { console.error('Tracker create failed:', e.message); }
+
+    // Broadcast queue position update to clients
+    try {
+      const io = req.app.get('io');
+      broadcastQueueUpdate(io);
+    } catch (e) { console.error('Queue broadcast failed:', e.message); }
 
     if (threadStatus === 'flagged') {
       const notif = new Notification({
@@ -407,8 +453,13 @@ router.post('/:id/metoo', authMiddleware, async (req, res) => {
 // GET /api/threads/:id/answers
 router.get('/:id/answers', async (req, res) => {
   try {
-    const thread = await FAQThread.findOne({ _id: req.params.id, status: 'active', isMerged: false }).select('_id');
-    if (!thread) return res.status(404).json({ message: 'Thread not found' });
+    const thread = await FAQThread.findById(req.params.id);
+    if (!thread || thread.isMerged) return res.status(404).json({ message: 'Thread not found' });
+
+    const hasAccess = await verifyThreadAccess(thread, req);
+    if (!hasAccess) {
+      return res.status(403).json({ message: 'Access denied. This thread is under review.' });
+    }
 
     const answers = await Answer.find({ threadId: req.params.id });
     
@@ -656,11 +707,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const aiScores = scoreContentModeration(body, title);
     const aiAnalysis = analyzeFAQ(title, body);
-<<<<<<< HEAD
     let threadStatus = req.user.role === 'admin' ? 'active' : 'pending_review';
-=======
-    let threadStatus = 'active';
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
     if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
       threadStatus = 'flagged';
     }
@@ -711,6 +758,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await Answer.deleteMany({ threadId: thread._id });
 
     await FAQThread.findByIdAndDelete(thread._id);
+
+    // Broadcast queue position update to clients
+    try {
+      const io = req.app.get('io');
+      broadcastQueueUpdate(io);
+    } catch (e) { console.error('Queue broadcast failed:', e.message); }
+
     res.json({ message: 'Thread deleted successfully' });
   } catch (error) {
     console.error('Delete thread error:', error.message);
@@ -767,6 +821,14 @@ router.delete('/answers/:ansId', authMiddleware, async (req, res) => {
     if (thread && thread.repliesCount > 0) {
       thread.repliesCount -= 1;
       await thread.save();
+    }
+
+    // Apply penalty if admin specified
+    if (req.user.role === 'admin') {
+      const penalty = req.query.penaltyPoints !== undefined ? Number(req.query.penaltyPoints) : 0;
+      if (penalty > 0) {
+        await updateReputation(answer.author, -Math.abs(penalty), 'toxic_penalty');
+      }
     }
 
     await Comment.deleteMany({ answerId: answer._id });

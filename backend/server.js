@@ -30,18 +30,12 @@ const trackRoutes = require('./routes/track');
 const app = express();
 const server = http.createServer(app);
 
-<<<<<<< HEAD
 // ── Environment & CORS config (must be before Socket.IO uses them) ───────
 const isProduction = process.env.NODE_ENV === 'production';
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
-=======
-// ── Environment & CORS config ────────────────────────────────────────────────
-const isProduction = cfg.NODE_ENV === 'production';
-const allowedOrigins = cfg.CORS_ORIGINS;
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 
 function isLocalDevelopmentOrigin(origin) {
   if (isProduction || !origin) return false;
@@ -85,6 +79,7 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   if (socket.userId) {
     socket.join(socket.userId);
+    socket.join(`user_${socket.userId}`);
     console.log(`[Socket.IO] User ${socket.userId} connected (role: ${socket.userRole})`);
   } else {
     console.log('[Socket.IO] Anonymous client connected');
@@ -454,11 +449,7 @@ async function startServer() {
   }
 
   server.listen(PORT, () => {
-<<<<<<< HEAD
     console.log(`[Server] Express + Socket.IO backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
-=======
-    console.log(`[Server] Express + Socket.IO backend running on port ${PORT} (${cfg.NODE_ENV})`);
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
     if (faqSeedEnabled) {
       seedOfficialFAQs();
     }

@@ -14,6 +14,7 @@ export const TRACKER_STEPS = [
 
 export const LiveFAQTracker = ({ threadId, compact = false }) => {
   const [tracker, setTracker] = useState(null);
+  const [queuePosition, setQueuePosition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -24,6 +25,7 @@ export const LiveFAQTracker = ({ threadId, compact = false }) => {
     try {
       const res = await api.get(`/track/${threadId}`);
       setTracker(res.data.tracker);
+      setQueuePosition(res.data.queuePosition);
       updateProgress(res.data.tracker.status);
     } catch (err) {
       console.error('Tracker fetch error:', err);
@@ -58,13 +60,20 @@ export const LiveFAQTracker = ({ threadId, compact = false }) => {
             if (data.status) updateProgress(data.status);
             return updated;
           });
+          fetchTracker();
         }
       };
 
+      const handleQueueUpdate = () => {
+        fetchTracker();
+      };
+
       io.on('faq_status_update', handleStatusUpdate);
+      io.on('queue_position_update', handleQueueUpdate);
 
       return () => {
         io.off('faq_status_update', handleStatusUpdate);
+        io.off('queue_position_update', handleQueueUpdate);
       };
     }
   }, [threadId]);
@@ -98,6 +107,11 @@ export const LiveFAQTracker = ({ threadId, compact = false }) => {
           <span>{step.icon}</span>
           <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">{step.label}</span>
         </div>
+        {queuePosition && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-500 dark:text-indigo-400">
+            <span className="text-[9px] font-black uppercase">Queue #{queuePosition}</span>
+          </div>
+        )}
         <div className="flex-1 h-1.5 bg-slate-200 dark:bg-brand-800 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
@@ -124,6 +138,26 @@ export const LiveFAQTracker = ({ threadId, compact = false }) => {
           {currentIdx + 1} of {TRACKER_STEPS.length} steps
         </span>
       </div>
+
+      {/* Queue Position Status Panel */}
+      {queuePosition && (
+        <div className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-xl p-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-500 dark:text-blue-400 font-extrabold text-xs">
+              #{queuePosition}
+            </div>
+            <div>
+              <p className="text-[10px] font-extrabold uppercase text-blue-500 dark:text-blue-400 tracking-wider">Queue Position</p>
+              <p className="text-[11px] text-slate-700 dark:text-slate-350 font-bold mt-0.5">
+                {queuePosition === 1 ? 'Your question is next in line!' : `You are at position #${queuePosition} in the resolution queue.`}
+              </p>
+            </div>
+          </div>
+          <div className="text-[9px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-brand-950/40 px-2 py-1 rounded-md">
+            {queuePosition - 1} ahead of you
+          </div>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="h-2 bg-slate-100 dark:bg-brand-800 rounded-full overflow-hidden">

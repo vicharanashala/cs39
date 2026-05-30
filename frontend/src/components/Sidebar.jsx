@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 const Sidebar = ({ collapsed = false, onToggle, mobile = false, onNavigate }) => {
-  const { user, activeTab, setActiveTab, setSelectedThreadId, logout } = useApp();
+  const { user, theme, activeTab, setActiveTab, setSelectedThreadId, logout } = useApp();
 
   if (!user) return null;
 
@@ -39,17 +39,28 @@ const Sidebar = ({ collapsed = false, onToggle, mobile = false, onNavigate }) =>
   const shellWidth = mobile ? 'w-72' : collapsed ? 'w-[88px]' : 'w-72';
 
   return (
-    <aside className={`${shellWidth} h-full shrink-0 border-r border-white/10 bg-slate-950/80 text-slate-200 shadow-2xl shadow-indigo-950/30 backdrop-blur-2xl transition-all duration-300 ${mobile ? 'flex' : 'hidden md:flex'} flex-col`}>
+    <aside className={`${shellWidth} h-full shrink-0 border-r transition-all duration-300 ${
+      mobile ? 'flex' : 'hidden md:flex'
+    } flex-col ${
+      theme === 'dark'
+        ? 'bg-[#0B0C0E] border-white/10 text-slate-200'
+        : 'bg-white border-slate-200 text-slate-700'
+    }`}>
       <div className="flex min-h-0 flex-1 flex-col p-4">
-        <div className={`flex items-center ${collapsed && !mobile ? 'justify-center' : 'justify-between'} gap-3 rounded-lg border border-white/10 bg-white/[0.04] p-3`}>
+        {/* Header container */}
+        <div className={`flex items-center ${collapsed && !mobile ? 'justify-center' : 'justify-between'} gap-3 rounded-lg border p-3 ${
+          theme === 'dark' ? 'border-white/10 bg-white/[0.04]' : 'border-slate-200 bg-slate-50'
+        }`}>
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 shadow-lg shadow-blue-500/20">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
             {(!collapsed || mobile) && (
               <div className="min-w-0">
-                <h1 className="truncate text-sm font-black tracking-wide text-white">FAQ Nexus</h1>
-                <p className="truncate text-[10px] font-bold uppercase tracking-[0.24em] text-blue-200/60">Admin Platform</p>
+                <h1 className={`truncate text-sm font-black tracking-wide ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>FAQ Nexus</h1>
+                <p className="truncate text-[10px] font-bold uppercase tracking-[0.24em] text-blue-500/80">
+                  {user.role === 'admin' ? 'Admin Platform' : 'Student Portal'}
+                </p>
               </div>
             )}
           </div>
@@ -57,7 +68,9 @@ const Sidebar = ({ collapsed = false, onToggle, mobile = false, onNavigate }) =>
           {!mobile && (
             <button
               onClick={onToggle}
-              className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+              className={`rounded-lg p-2 transition ${
+                theme === 'dark' ? 'text-slate-400 hover:bg-white/10 hover:text-white' : 'text-slate-500 hover:bg-slate-200 hover:text-slate-900'
+              }`}
               title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -65,6 +78,7 @@ const Sidebar = ({ collapsed = false, onToggle, mobile = false, onNavigate }) =>
           )}
         </div>
 
+        {/* Navigation links */}
         <nav className="mt-6 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -76,51 +90,65 @@ const Sidebar = ({ collapsed = false, onToggle, mobile = false, onNavigate }) =>
                 onClick={() => handleNavigation(item.id)}
                 className={`group flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-xs font-bold transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-blue-500/20 to-violet-500/20 text-white ring-1 ring-blue-400/30 shadow-lg shadow-blue-950/20'
-                    : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
+                    ? theme === 'dark'
+                      ? 'bg-gradient-to-r from-blue-500/20 to-violet-500/20 text-white ring-1 ring-blue-400/30 shadow-lg shadow-blue-950/20'
+                      : 'bg-slate-100 text-slate-900 ring-1 ring-slate-200/85 shadow-sm'
+                    : theme === 'dark'
+                    ? 'text-slate-450 hover:bg-white/[0.06] hover:text-white'
+                    : 'text-slate-550 hover:bg-slate-50 hover:text-slate-900'
                 } ${collapsed && !mobile ? 'justify-center' : ''}`}
                 title={collapsed && !mobile ? item.label : undefined}
               >
-                <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-blue-300' : 'text-slate-500 group-hover:text-blue-300'}`} />
+                <Icon className={`h-5 w-5 shrink-0 ${
+                  isActive 
+                    ? theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                    : theme === 'dark' ? 'text-slate-500 group-hover:text-blue-300' : 'text-slate-400 group-hover:text-blue-600'
+                }`} />
                 {(!collapsed || mobile) && <span className="truncate">{item.label}</span>}
               </button>
             );
           })}
         </nav>
 
-        <div className="mt-auto rounded-lg border border-blue-400/20 bg-blue-500/10 p-3">
+        {/* Health status widget */}
+        <div className={`mt-auto rounded-lg p-3 ${
+          theme === 'dark' ? 'border border-blue-400/20 bg-blue-500/10' : 'border border-slate-200 bg-slate-50'
+        }`}>
           {(!collapsed || mobile) ? (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-200/70">System Health</p>
+              <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${theme === 'dark' ? 'text-blue-200/70' : 'text-blue-600'}`}>System Health</p>
               <div className="mt-3 flex items-center justify-between text-xs">
-                <span className="text-slate-300">FAQ response SLA</span>
-                <span className="font-black text-emerald-300">98%</span>
+                <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}>FAQ response SLA</span>
+                <span className="font-black text-emerald-500 dark:text-emerald-300">98%</span>
               </div>
-              <div className="mt-2 h-1.5 rounded-full bg-slate-800">
-                <div className="h-full w-[98%] rounded-full bg-gradient-to-r from-blue-400 to-emerald-300" />
+              <div className={`mt-2 h-1.5 rounded-full ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                <div className="h-full w-[98%] rounded-full bg-gradient-to-r from-blue-400 to-emerald-400" />
               </div>
             </>
           ) : (
-            <div className="mx-auto h-2 w-2 rounded-full bg-emerald-300 shadow-lg shadow-emerald-300/40" title="System health 98%" />
+            <div className="mx-auto h-2 w-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/40" title="System health 98%" />
           )}
         </div>
       </div>
 
-      <div className="border-t border-white/10 p-4">
-        <div className={`flex items-center gap-3 ${collapsed && !mobile ? 'justify-center' : 'justify-between'}`}>
+      {/* Footer / User controls */}
+      <div className={`border-t p-4 ${theme === 'dark' ? 'border-white/10' : 'border-slate-200'}`}>
+        <div className={`flex items-center gap-3 ${collapsed && !mobile ? 'justify-center' : 'between'}`}>
           <div className={`flex min-w-0 items-center gap-3 ${collapsed && !mobile ? 'hidden' : ''}`}>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-sm font-black uppercase text-white ring-1 ring-white/10">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black uppercase ring-1 ${
+              theme === 'dark' ? 'bg-white/10 text-white ring-white/10' : 'bg-slate-100 text-slate-800 ring-slate-200'
+            }`}>
               {user.username?.charAt(0)}
             </div>
             <div className="min-w-0">
-              <h4 className="truncate text-xs font-black capitalize text-white">{user.username}</h4>
+              <h4 className={`truncate text-xs font-black capitalize ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{user.username}</h4>
               <p className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500">{user.role}</p>
             </div>
           </div>
           <button
             onClick={logout}
             title="Log out"
-            className="rounded-lg p-2 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-300"
+            className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-500/10 hover:text-rose-500"
           >
             <LogOut className="h-4 w-4" />
           </button>

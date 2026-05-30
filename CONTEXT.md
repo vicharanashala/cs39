@@ -15,7 +15,6 @@ Full-stack FAQ platform for IIT Ropar internship program. Node.js/Express backen
 
 ## Project Structure
 ```
-<<<<<<< HEAD
 C:\Users\Lenovo\Desktop\Prototype\
 ├── backend/
 │   ├── server.js           # Express + Socket.IO + MongoDB
@@ -23,65 +22,25 @@ C:\Users\Lenovo\Desktop\Prototype\
 │   ├── routes/
 │   │   ├── threads.js       # FAQ CRUD + search + paraphrase
 │   │   ├── admin.js         # Admin panel + analytics endpoints
-=======
-C:\Users\Lenovo\Desktop\Prototype\Prototype_update\
-├── backend/
-│   ├── server.js           # Express + Socket.IO + MongoDB
-│   ├── config.js            # All backend constants (ports, thresholds, flags)
-│   ├── models/Schemas.js    # All MongoDB schemas
-│   ├── routes/
-│   │   ├── threads.js       # FAQ CRUD + search + paraphrase + queue
-│   │   ├── admin.js         # Admin panel + analytics endpoints + queue mgmt
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 │   │   ├── auth.js          # Login/signup
 │   │   └── ...
 │   └── services/
 │       ├── aiService.js     # paraphraseQuery(), analyzeFAQ()
 │       └── reputation.js    # SP point system
 ├── frontend/src/
-<<<<<<< HEAD
 │   ├── App.jsx              # Main app + routing
 │   ├── pages/
 │   │   ├── FAQFeed.jsx      # Main FAQ listing + search
 │   │   ├── ThreadDetail.jsx  # Thread + answers + comments
 │   │   ├── Dashboard.jsx     # Admin + student dashboard
 │   │   ├── Analytics.jsx     # Analytics 6-tab panel (admin)
-=======
-│   ├── config.js            # All frontend constants (ports, thresholds, flags)
-│   ├── App.jsx              # Main app + routing
-│   ├── pages/
-│   │   ├── FAQFeed.jsx      # Main FAQ listing + search + Ask Question
-│   │   ├── ThreadDetail.jsx  # Thread + answers + comments
-│   │   ├── Dashboard.jsx     # Admin + student dashboard
-│   │   ├── Analytics.jsx    # Analytics 6-tab panel (admin)
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 │   │   └── Profile.jsx
 │   └── components/
 │       ├── Navbar.jsx
 │       ├── TTSButton.jsx    # Wit.ai + browser fallback TTS
 │       └── FloatingChatbot.jsx
-<<<<<<< HEAD
 ```
 
-=======
-├── backend/.env              # PORT, MONGODB_URI, JWT_SECRET, thresholds
-└── frontend/.env             # VITE_API_URL, VITE_API_PROXY_TARGET, VITE_DEV_HOST
-```
-
-### Constants — Where to Edit
-| What | Where to change |
-|------|----------------|
-| Backend port | `backend/.env` → `PORT=5000` |
-| MongoDB URI | `backend/.env` → `MONGODB_URI=...` |
-| JWT secret | `backend/.env` → `JWT_SECRET=...` |
-| AI similarity threshold (duplicate blocking) | `backend/.env` → `SIMILARITY_THRESHOLD=0.45` |
-| Toxicity/spam flag thresholds | `backend/config.js` → `TOXICITY_FLAG_THRESHOLD` / `SPAM_FLAG_THRESHOLD` |
-| Rate limit (req/min) | `backend/config.js` → `RATE_LIMIT_MAX_REQUESTS` |
-| Frontend API URL (production) | `frontend/.env` → `VITE_API_URL=https://...` |
-| Backend proxy target (dev) | `frontend/.env` → `VITE_API_PROXY_TARGET=http://localhost:5000` |
-| Dev server host | `frontend/.env` → `VITE_DEV_HOST=localhost` |
-
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 ---
 
 ## Key Files & What They Do
@@ -97,11 +56,7 @@ C:\Users\Lenovo\Desktop\Prototype\Prototype_update\
 ### Frontend
 | File | Purpose |
 |------|---------|
-<<<<<<< HEAD
 | `FAQFeed.jsx` | Main FAQ list, search with smart/paraphrase toggle, TTS widget inline, answer expansion with TTS button |
-=======
-| `FAQFeed.jsx` | Official/Saved/Trending tabs, upvote/downvote feedback on community questions, expand answer with TTS button, bookmark/save star icon, Ask Question modal |
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 | `ThreadDetail.jsx` | Full thread view, answers, comments, upvotes, admin verify, AI analysis panel |
 | `Analytics.jsx` | 6-tab admin analytics — Overview, Most Searched, User Activity, Feedback, Trending, System |
 | `TTSButton.jsx` | Reusable TTS component — Wit.ai API (POST JSON, voice=wit$Rebecca) or browser SpeechSynthesis fallback |
@@ -110,19 +65,10 @@ C:\Users\Lenovo\Desktop\Prototype\Prototype_update\
 
 ## Key State Variables (Frontend)
 - `activeTab` — 'feed' | 'dashboard' | 'admin' | 'analytics' | 'profile'
-<<<<<<< HEAD
 - `selectedThreadId` — when set, shows ThreadDetail instead of tab content
 - `expandedThreadId` — which thread answer is visible in FAQFeed
 - `mode` — 'official' | 'community' | 'saved'
 - TTS: `ttsKey`, `ttsStatus`, `ttsText`, `voices`, `selectedVoice`
-=======
-- `selectedThreadId` — used by ThreadDetail for answer view
-- `expandedThreadId` — which thread answer is expanded in FAQFeed
-- `mode` — 'official' | 'saved' | 'trending'
-- `userVotes` — local vote tracking: `{ threadId: 'up' | 'down' | null }`
-- TTS: `ttsKey`, `ttsStatus`, `ttsText`, `voices`, `selectedVoice`
-- Bookmarks: `bookmarks` array (threadIds), `toggleBookmark(threadId)` from AppContext
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 
 ---
 
@@ -217,64 +163,6 @@ Track each FAQ thread through a lifecycle: `received` → `ai_analyzing` → `ex
 
 ---
 
-<<<<<<< HEAD
 ## Context Exhaustion Plan
 If tokens run out, read this file + the relevant SKILL.md files before continuing work.
 Keep this file updated after every significant feature addition.
-=======
----
-
-## Pending Question Queue System
-
-### Overview
-New community questions enter a **waiting queue** before being published to the community feed. Each question gets a **queue number** that shows how many questions are ahead of it. Admins see the full queue and can approve/delete questions. Once approved, the user gets a notification.
-
-### Flow
-1. User posts a question → status = `pending`, `queueNumber` = current position in queue
-2. User sees their question in "My Questions" with queue number and ahead-count
-3. Admin sees all pending questions in a dedicated "Pending Queue" panel with sort options (priority, newest, queue number)
-4. Admin approves → status changes to `active`, question appears in community
-5. User gets a **notification** that their question was answered/published
-
-### Queue Number Logic
-- `queueNumber` = position assigned at creation = count of existing `pending` threads + 1
-- `aheadCount` = count of other `pending` threads created before this one (dynamically computed)
-- When a question is approved/removed from queue, all remaining `pending` threads do NOT shift queueNumber (queueNumber is fixed at creation). `aheadCount` is computed at read time.
-
-### Thread Schema Changes
-```
-FAQThread {
-  status: 'active' | 'pending' | 'flagged' | 'spam' | 'completed'
-  queueNumber: Number   // assigned at creation when status='pending'
-  queueAssignedAt: Date // when added to queue
-}
-```
-
-### Backend Endpoints
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/threads/create` | Creates thread with status=`pending` + assigns `queueNumber` |
-| `GET` | `/api/threads/my-questions` | Returns user's threads (all statuses) |
-| `GET` | `/api/admin/pending-queue` | Admin: all `pending` threads sorted by priority/queueNumber/newest |
-| `POST` | `/api/admin/process-queue/:threadId` | Admin: `action='approve'` → active, `action='reject'` → spam/rejected |
-| `GET` | `/api/threads/queue-position/:threadId` | Returns `{ queueNumber, aheadCount }` for a thread |
-
-### Frontend Changes
-- **FAQFeed.jsx** — "My Questions" tab shows each question's queue number + ahead count + status badge
-- **Dashboard.jsx** (admin) — "Pending Queue" panel with sortable table, priority sort, approve/reject buttons
-- **Notifications** — when admin approves, a notification is saved for the thread author
-
-### Sort Options for Admin Queue Panel
-- `queueNumber` (default) — FIFO order
-- `priority` — urgent > high > normal
-- `newest` — most recently submitted
-
-### Status Badges (UI)
-| Status | Badge |
-|--------|-------|
-| `pending` | 🟡 Queue #X — Y ahead |
-| `active` | 🟢 Live in Community |
-| `flagged` | 🔴 Flagged for Review |
-| `completed` | ✅ Answered & Completed |
-| `rejected` | ❌ Not Approved |
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852

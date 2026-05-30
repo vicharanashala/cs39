@@ -109,6 +109,7 @@ async function updateReputation(userId, pointsChange, reason) {
       case 'official_faq': reasonText = 'your thread becoming an official FAQ'; break;
       case 'toxic_penalty': reasonText = 'violating toxicity guidelines'; break;
       case 'spam_penalty': reasonText = 'being flagged for spam'; break;
+      case 'rejection_penalty': reasonText = 'content rejection by admins'; break;
       default: reasonText = 'reputation updates';
     }
 

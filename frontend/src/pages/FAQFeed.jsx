@@ -18,11 +18,7 @@ const TrendingSection = ({ threads, loading, onSelect }) => {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-<<<<<<< HEAD
-        <span className="soft-accent text-[10px] font-extrabold uppercase tracking-widest">🔥 Trending</span>
-=======
         <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-500">🔥 Trending</span>
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
         <div className="flex-1 h-px bg-slate-200 dark:bg-brand-800" />
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1 py-1 scrollbar-thin">
@@ -226,7 +222,7 @@ const FAQFeed = () => {
     } else {
       fetchThreads();
     }
-  }, [mode]);
+  }, [mode, bookmarks, user]);
 
   // Fetch paraphrases when smart search is active and search text changes
   useEffect(() => {
@@ -251,6 +247,19 @@ const FAQFeed = () => {
 
   const fetchThreads = async () => {
     setLoading(true);
+    if (mode === 'official' && !search.trim()) {
+      const cached = localStorage.getItem('cached_official_faqs');
+      if (cached) {
+        try {
+          setThreads(JSON.parse(cached));
+          setExpandedThreadId(null);
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.error('Failed to parse cached official FAQs:', e);
+        }
+      }
+    }
     try {
       const response = await api.get('/threads', {
         params: {
@@ -262,6 +271,16 @@ const FAQFeed = () => {
       });
       setThreads(response.data);
       setExpandedThreadId(null);
+
+      if (mode === 'official' && !search.trim()) {
+        try {
+          const tsRes = await api.get('/threads/last-updated');
+          localStorage.setItem('cached_official_faqs', JSON.stringify(response.data));
+          localStorage.setItem('faq_last_updated', String(tsRes.data.timestamp || Date.now()));
+        } catch (e) {
+          console.error('Failed to write FAQ cache:', e);
+        }
+      }
       // Log search to analytics if query was made
       if (search.trim()) {
         api.post('/admin/analytics/log-search', {
@@ -301,11 +320,16 @@ const FAQFeed = () => {
     }
   };
 
-  const fetchSavedThreads = async () => {
+  const fetchSavedThreads = () => {
     setSavedLoading(true);
     try {
-      const res = await api.get('/bookmarks');
-      setSavedThreads(res.data);
+      if (!user) {
+        setSavedThreads([]);
+        return;
+      }
+      const storageKey = `saved_faqs_${user.id}`;
+      const saved = JSON.parse(localStorage.getItem(storageKey)) || [];
+      setSavedThreads(saved);
       setExpandedThreadId(null);
     } catch (err) {
       showAlert('Could not load saved FAQs.', 'error');
@@ -322,7 +346,15 @@ const FAQFeed = () => {
   const isSavedMode = mode === 'saved';
   const activeGroup = groupedThreads.find(group => group.id === selectedGroup) || groupedThreads[0];
   const visibleThreads = isSavedMode
-    ? savedThreads
+    ? savedThreads.filter(thread => {
+        const query = search.toLowerCase().trim();
+        return (
+          !query ||
+          thread.title.toLowerCase().includes(query) ||
+          (thread.body || '').toLowerCase().includes(query) ||
+          (thread.answerText || '').toLowerCase().includes(query)
+        );
+      })
     : activeGroup.threads.filter(thread => {
         const query = search.toLowerCase().trim();
         return !query || thread.title.toLowerCase().includes(query) || (thread.body || '').toLowerCase().includes(query);
@@ -407,74 +439,7 @@ const FAQFeed = () => {
         </button>
       </header>
 
-      {/* ── Text to Speech Widget ─────────────────────────────────────────────── */}
-<<<<<<< HEAD
-      <div className="soft-panel bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-slate-100 dark:border-brand-800 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <Volume2 className="soft-accent w-4 h-4" />
-=======
-      <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-slate-100 dark:border-brand-800 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <Volume2 className="w-4 h-4 text-brand-500" />
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
-            <span className="text-xs font-extrabold text-slate-700 dark:text-slate-200">Text to Speech</span>
-            {localStorage.getItem('WIT_API_KEY') ? (
-              <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
-                <CheckCircle2 className="w-3 h-3" /> Wit.ai
-              </span>
-            ) : (
-              <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-brand-800 px-1.5 py-0.5 rounded-full">Browser</span>
-            )}
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 flex-1">
-            <input
-              type="password"
-              value={ttsKey}
-              onChange={e => setTtsKey(e.target.value)}
-              placeholder="WIT_API_KEY (leave blank for browser voice)"
-              className="flex-1 border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 rounded-lg px-3 py-1.5 text-[11px] outline-none text-slate-700 dark:text-slate-200 w-full sm:w-52"
-            />
-            <div className="flex gap-1.5">
-<<<<<<< HEAD
-              <button onClick={ttsSaveKey} disabled={ttsSaving} className="soft-primary px-3 py-1.5 disabled:opacity-50 rounded-lg text-[11px] font-bold shrink-0 transition-colors">
-=======
-              <button onClick={ttsSaveKey} disabled={ttsSaving} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors">
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
-                {ttsSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save Key'}
-              </button>
-              {!localStorage.getItem('WIT_API_KEY') && voices.length > 0 && (
-                <select
-                  value={selectedVoice?.name || ''}
-                  onChange={e => setSelectedVoice(voices.find(v => v.name === e.target.value) || null)}
-                  className="border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 rounded-lg px-2 py-1.5 text-[10px] outline-none text-slate-700 dark:text-slate-200"
-                >
-                  {voices.slice(0, 10).map(v => <option key={v.name} value={v.name}>{v.name.split(' ').slice(0, 2).join(' ')}</option>)}
-                </select>
-              )}
-<<<<<<< HEAD
-              <button onClick={ttsPlay} disabled={!ttsText.trim() || ttsStatus === 'loading' || ttsStatus === 'playing'} className="soft-primary px-3 py-1.5 disabled:opacity-40 rounded-lg text-[11px] font-bold shrink-0 transition-colors flex items-center gap-1.5">
-=======
-              <button onClick={ttsPlay} disabled={!ttsText.trim() || ttsStatus === 'loading' || ttsStatus === 'playing'} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors flex items-center gap-1.5">
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
-                {ttsStatus === 'loading' ? <Loader2 className="w-3 h-3 animate-spin" /> : ttsStatus === 'playing' ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
-                {ttsStatus === 'playing' ? 'Stop' : 'Speak'}
-              </button>
-            </div>
-          </div>
-        </div>
-        {ttsSaveMsg && <div className="px-4 py-1.5 bg-emerald-500/10 border-b border-emerald-500/20"><p className="text-[10px] font-bold text-emerald-600">{ttsSaveMsg}</p></div>}
-        {ttsError && <div className="px-4 py-1.5 bg-rose-500/10 border-b border-rose-500/20 flex items-center gap-1.5"><AlertCircle className="w-3 h-3 text-rose-500" /><p className="text-[10px] font-bold text-rose-500">{ttsError}</p></div>}
-        <textarea
-          value={ttsText}
-          onChange={e => setTtsText(e.target.value)}
-          placeholder="Paste any FAQ answer or text here to listen to it…"
-          rows={3}
-          className="w-full px-4 py-3 text-xs text-slate-700 dark:text-slate-200 bg-transparent outline-none resize-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
-        />
-        {ttsStatusMsg && <div className="px-4 pb-2"><p className="text-[10px] font-bold text-slate-400">{ttsStatus === 'playing' && '🔊 '}{ttsStatusMsg}</p></div>}
-      </div>
+
 
       <div className="flex gap-2">
         {[
@@ -505,11 +470,7 @@ const FAQFeed = () => {
               onClick={() => setSelectedGroup(group.id)}
               className={`p-4 rounded-2xl border text-left transition-colors ${
                 selectedGroup === group.id
-<<<<<<< HEAD
                   ? 'soft-primary border-transparent'
-=======
-                  ? 'border-brand-500 bg-brand-500 text-white'
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                   : 'bg-white dark:bg-brand-900 border-slate-200 dark:border-brand-800 text-slate-800 dark:text-white'
               }`}
             >
@@ -517,31 +478,13 @@ const FAQFeed = () => {
               <p className={`text-[11px] mt-1 ${selectedGroup === group.id ? 'text-white/75' : 'text-slate-400'}`}>
                 {group.description}
               </p>
-<<<<<<< HEAD
               <p className={`text-xs font-bold mt-4 ${selectedGroup === group.id ? 'text-white' : 'soft-accent'}`}>
-=======
-              <p className={`text-xs font-bold mt-4 ${selectedGroup === group.id ? 'text-white' : 'text-brand-500'}`}>
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                 {group.threads.length} questions
               </p>
             </button>
           ))}
         </section>
       )}
-<<<<<<< HEAD
-=======
-
-      {mode === 'official' && (
-        <TrendingSection
-          threads={trending}
-          loading={trendingLoading}
-          onSelect={(thread) => {
-            setSelectedThreadId(thread._id);
-            window.location.hash = thread.faqNumber ? `#faq-${thread.faqNumber}` : `#thread-${thread._id}`;
-          }}
-        />
-      )}
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 
       <TrendingSection
         threads={trending}
@@ -562,134 +505,133 @@ const FAQFeed = () => {
               {isSavedMode ? 'Your bookmarked FAQs' : mode === 'official' ? 'Verified FAQ answers' : 'Student discussions'}
             </p>
           </div>
-          {!isSavedMode && (
-            <div className="flex flex-col gap-2 w-full sm:w-72">
-              <div className="relative">
-                <Search className="absolute w-3.5 h-3.5 text-slate-400 left-3 top-2.5" />
-                <input
-                  value={search}
-                  onChange={event => setSearch(event.target.value)}
-                  placeholder="Search this section"
-                  className="w-full rounded-lg border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 pl-9 pr-16 py-2 text-xs outline-none"
-                />
+          <div className="flex flex-col gap-2 w-full sm:w-72">
+            <div className="relative">
+              <Search className="absolute w-3.5 h-3.5 text-slate-400 left-3 top-2.5" />
+              <input
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+                placeholder={isSavedMode ? "Search saved FAQs" : "Search this section"}
+                className="w-full rounded-lg border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 pl-9 pr-16 py-2 text-xs outline-none text-slate-800 dark:text-slate-100"
+              />
+              {!isSavedMode && (
                 <button
                   onClick={() => setSmartSearch(s => !s)}
                   title={smartSearch ? 'Disable smart search' : 'Enable smart search with paraphrasing'}
                   className={`absolute right-2 top-1.5 px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 transition-colors ${
                     smartSearch
-<<<<<<< HEAD
                       ? 'soft-primary'
-=======
-                      ? 'bg-brand-500 text-white'
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                       : 'bg-slate-100 dark:bg-brand-800 text-slate-500 dark:text-slate-400'
                   }`}
                 >
                   <Wand2 className="w-3 h-3" />
                   Smart
                 </button>
-              </div>
-
-              {/* Paraphrase chips */}
-              {(paraphraseLoading || paraphrases.length > 0) && (
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  {paraphraseLoading ? (
-                    <span className="text-[10px] text-slate-400">Generating variants...</span>
-                  ) : (
-                    <>
-                      <span className="text-[9px] text-slate-400 font-bold shrink-0">Variants:</span>
-                      {paraphrases.map((p, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setSearch(p)}
-                          className="px-2 py-0.5 bg-brand-50 dark:bg-brand-950 border border-brand-200 dark:border-brand-700 rounded-full text-[10px] text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors"
-                        >
-                          {p}
-                        </button>
-                      ))}
-                    </>
-                  )}
-                </div>
               )}
             </div>
-          )}
+
+            {/* Paraphrase chips */}
+            {!isSavedMode && (paraphraseLoading || paraphrases.length > 0) && (
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {paraphraseLoading ? (
+                  <span className="text-[10px] text-slate-400">Generating variants...</span>
+                ) : (
+                  <>
+                    <span className="text-[9px] text-slate-400 font-bold shrink-0">Variants:</span>
+                    {paraphrases.map((p, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setSearch(p)}
+                        className="px-2 py-0.5 bg-brand-50 dark:bg-brand-950 border border-brand-200 dark:border-brand-700 rounded-full text-[10px] text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {isSavedMode ? (
           savedLoading ? (
             <p className="p-8 text-center text-xs text-slate-400">Loading saved FAQs...</p>
-          ) : savedThreads.length === 0 ? (
+          ) : visibleThreads.length === 0 ? (
             <p className="p-8 text-center text-xs text-slate-400">
-              No saved FAQs yet. Click the <Star className="w-3 h-3 inline text-amber-400 fill-amber-400" /> icon on any FAQ to save it here.
+              {search.trim() ? "No matching saved FAQs found." : "No saved FAQs yet. Click the Star icon on any FAQ to save it here."}
             </p>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-brand-800">
-              {savedThreads.map(thread => {
-                const isExpanded = expandedThreadId === thread._id;
-                const answer = answers[thread._id]?.[0];
+              {visibleThreads.map(thread => {
                 const anchorId = thread.faqNumber ? `faq-${thread.faqNumber}` : `thread-${thread._id}`;
+                const showBody = thread.body && thread.body.trim().toLowerCase() !== thread.title.trim().toLowerCase();
                 return (
-                  <article id={anchorId} key={thread._id} className="p-4">
+                  <article id={anchorId} key={thread._id} className="p-5 flex flex-col gap-3">
                     <div className="flex items-start justify-between gap-3">
-                      <button
-                        onClick={() => toggleAnswer(thread._id)}
-                        className="flex items-start gap-2 flex-wrap text-left flex-1 min-w-0"
-                      >
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
-                          {thread.title}
-                          {thread.faqNumber && (
-                            <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-brand-800 text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-brand-700 shrink-0">
-                              #{thread.faqNumber}
-                            </span>
-                          )}
-                        </p>
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-[9px] font-bold text-amber-500 border border-amber-200 dark:border-amber-800 shrink-0 mt-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {thread.faqNumber && (
+                          <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-brand-800 text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-brand-700">
+                            #{thread.faqNumber}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-50/50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-800">
+                          {thread.category}
+                        </span>
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-[9px] font-bold text-amber-500 border border-amber-200 dark:border-amber-800">
                           SAVED
                         </span>
-                      </button>
-                      <div className="flex items-center gap-1 shrink-0">
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
-                            const saved = await toggleBookmark(thread._id);
+                            const saved = await toggleBookmark(thread._id, thread);
                             if (saved !== null) {
-                              showAlert(saved ? 'FAQ saved!' : 'Bookmark removed.', saved ? 'success' : 'info');
                               api.post('/admin/analytics/log-activity', {
                                 action: 'bookmark',
                                 metadata: { threadId: thread._id, saved }
                               }).catch(() => {});
-                              if (isSavedMode) fetchSavedThreads();
                             }
                           }}
-                          className="p-1 rounded hover:bg-slate-100 dark:hover:bg-brand-800 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-brand-800 transition-colors text-amber-400"
                           title="Remove bookmark"
                         >
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                         </button>
-                        {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-brand-500" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4 text-slate-400" />
-                        )}
                       </div>
                     </div>
-                    {isExpanded && (
-                      <div className="mt-3 pl-3 border-l-2 border-brand-500/20">
-                        {answerLoading && !answer ? (
-                          <p className="text-xs text-slate-400">Loading answer...</p>
-                        ) : answer ? (
-                          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-line">{answer.body}</p>
-                        ) : (
-                          <p className="text-xs text-slate-400">No answer available yet.</p>
-                        )}
-                        <button
-                          onClick={() => setSelectedThreadId(thread._id)}
-                          className="mt-3 text-[11px] text-brand-500 font-bold"
-                        >
-                          Open discussion
-                        </button>
+
+                    <div className="space-y-1">
+                      <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white leading-snug">
+                        {thread.title}
+                      </h3>
+                      {showBody && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-line leading-relaxed">
+                          {thread.body}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Inline Answer Panel */}
+                    <div className="mt-2 p-4 rounded-xl bg-slate-50 dark:bg-brand-950/30 border border-slate-100 dark:border-brand-850 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-450">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Answer</span>
                       </div>
-                    )}
+                      <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-350 whitespace-pre-line">
+                        {thread.answerText || 'No answer available yet.'}
+                      </p>
+                    </div>
+
+                    <div className="flex justify-end mt-1">
+                      <button
+                        onClick={() => setSelectedThreadId(thread._id)}
+                        className="text-[11px] text-brand-500 dark:text-brand-455 hover:underline font-bold"
+                      >
+                        Open discussion &rarr;
+                      </button>
+                    </div>
                   </article>
                 );
               })}
@@ -748,9 +690,8 @@ const FAQFeed = () => {
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
-                          const saved = await toggleBookmark(thread._id);
+                          const saved = await toggleBookmark(thread._id, thread);
                           if (saved !== null) {
-                            showAlert(saved ? 'FAQ saved!' : 'Bookmark removed.', saved ? 'success' : 'info');
                             api.post('/admin/analytics/log-activity', {
                               action: 'bookmark',
                               metadata: { threadId: thread._id, saved }

@@ -24,12 +24,45 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const checkAndSyncFAQCache = useCallback(async () => {
+    if (!token) return;
+    try {
+      const localTimestamp = localStorage.getItem('faq_last_updated');
+      const cachedData = localStorage.getItem('cached_official_faqs');
+
+      let needFetch = !localTimestamp || !cachedData;
+
+      if (!needFetch) {
+        const tsRes = await api.get('/threads/last-updated');
+        const serverTimestamp = tsRes.data.timestamp;
+        if (serverTimestamp > parseInt(localTimestamp, 10)) {
+          needFetch = true;
+        }
+      }
+
+      if (needFetch) {
+        console.log('[FAQ Cache] Cache missing or stale. Fetching fresh FAQs...');
+        const res = await api.get('/threads', {
+          params: { isOfficial: 'true', sort: 'newest' }
+        });
+        const tsRes = await api.get('/threads/last-updated');
+        localStorage.setItem('cached_official_faqs', JSON.stringify(res.data));
+        localStorage.setItem('faq_last_updated', String(tsRes.data.timestamp || Date.now()));
+      } else {
+        console.log('[FAQ Cache] Cache is up-to-date.');
+      }
+    } catch (error) {
+      console.error('[FAQ Cache] Failed to sync cache:', error.message);
+    }
+  }, [token]);
+
   // Load user profile on start if token exists
   useEffect(() => {
     if (token) {
       checkSession();
+      checkAndSyncFAQCache();
     }
-  }, [token]);
+  }, [token, checkAndSyncFAQCache]);
 
   const checkSession = async () => {
     try {
@@ -105,38 +138,84 @@ export const AppProvider = ({ children }) => {
     }, 4000);
   };
 
-  const fetchBookmarks = useCallback(async () => {
-    if (!token) return;
+  const toggleBookmark = useCallback(async (threadId, threadData = null) => {
+    if (!token || !user) return null;
+    const storageKey = `saved_faqs_${user.id}`;
+    let savedList = [];
     try {
-      const res = await api.get('/bookmarks');
-      setBookmarks(res.data.map(b => b.threadId));
-    } catch (err) {
-      console.error('[AppContext] fetchBookmarks error:', err.message);
+      savedList = JSON.parse(localStorage.getItem(storageKey)) || [];
+    } catch (e) {
+      savedList = [];
     }
-  }, [token]);
 
-  const toggleBookmark = useCallback(async (threadId) => {
-    if (!token) return;
-    try {
-      const res = await api.post('/bookmarks/toggle', { threadId });
-      setBookmarks(prev =>
-        res.data.bookmarked
-          ? [...prev, threadId]
-          : prev.filter(id => id !== threadId)
-      );
-      return res.data.bookmarked;
-    } catch (err) {
-      showAlert('Could not update bookmark.', 'error');
-      return null;
+    const isSaved = savedList.some(item => item._id === threadId);
+
+    if (isSaved) {
+      savedList = savedList.filter(item => item._id !== threadId);
+      localStorage.setItem(storageKey, JSON.stringify(savedList));
+      setBookmarks(savedList.map(item => item._id));
+      showAlert('FAQ removed from saved list.', 'info');
+      return false;
+    } else {
+      let threadToSave = threadData;
+      if (!threadToSave) {
+        try {
+          const res = await api.get(`/threads/${threadId}`);
+          threadToSave = res.data;
+        } catch (e) {
+          console.error('Failed to fetch thread for bookmark:', e);
+        }
+      }
+
+      if (!threadToSave) {
+        showAlert('Could not save FAQ.', 'error');
+        return null;
+      }
+
+      // Fetch answers to save the top/verified answer
+      let answerText = '';
+      try {
+        const ansRes = await api.get(`/threads/${threadId}/answers`);
+        const topAns = ansRes.data.find(a => a.isVerified) || ansRes.data[0];
+        if (topAns) {
+          answerText = topAns.body;
+        }
+      } catch (e) {
+        console.error('Failed to fetch answer for bookmark:', e);
+      }
+
+      const newItem = {
+        _id: threadToSave._id,
+        title: threadToSave.title,
+        body: threadToSave.body,
+        category: threadToSave.category,
+        faqNumber: threadToSave.faqNumber,
+        isOfficial: threadToSave.isOfficial,
+        answerText: answerText || 'No reply available yet.'
+      };
+
+      savedList.push(newItem);
+      localStorage.setItem(storageKey, JSON.stringify(savedList));
+      setBookmarks(savedList.map(item => item._id));
+      showAlert('FAQ saved to local storage!', 'success');
+      return true;
     }
-  }, [token]);
+  }, [token, user]);
 
   // Load bookmarks when user logs in
   useEffect(() => {
     if (user) {
-      fetchBookmarks();
+      const storageKey = `saved_faqs_${user.id}`;
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey)) || [];
+        setBookmarks(saved.map(item => item._id));
+      } catch (e) {
+        setBookmarks([]);
+      }
+    } else {
+      setBookmarks([]);
     }
-  }, [user, fetchBookmarks]);
+  }, [user]);
 
   const addToast = (title, message, type = 'info') => {
     showAlert(`${title}: ${message}`, type === 'error' || type === 'verification' ? 'error' : 'success');
@@ -199,7 +278,6 @@ export const AppProvider = ({ children }) => {
       setAlert,
       addToast,
       bookmarks,
-      fetchBookmarks,
       toggleBookmark
     }}>
       {children}

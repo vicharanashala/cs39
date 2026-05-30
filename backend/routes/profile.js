@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { FAQThread, Answer, User, SPTransaction } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
+const { getQueuePosition } = require('../services/queueService');
 
 // GET /api/profile/:userId/sp-history - Paginated SP transaction history
 router.get('/:userId/sp-history', authMiddleware, async (req, res) => {
@@ -43,9 +44,11 @@ router.get('/:userId', authMiddleware, async (req, res) => {
     const rawRaisedThreads = await FAQThread.find({ author: targetUserId, status: visibleStatus });
     const raisedThreads = await Promise.all(rawRaisedThreads.map(async (thread) => {
       const answers = await Answer.find({ threadId: thread._id });
+      const queuePosition = await getQueuePosition(thread._id);
       return {
         ...thread.toObject(),
-        answers
+        answers,
+        queuePosition
       };
     }));
 

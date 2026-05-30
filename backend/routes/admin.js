@@ -1,13 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { FAQThread, Answer, User, Notification, SPTransaction, Comment, SearchLog, UserActivity, Feedback, SystemMetrics, Bookmark } = require('../models/Schemas');
+const { FAQThread, Answer, User, Notification, SPTransaction, Comment, SearchLog, UserActivity, Feedback, SystemMetrics, Bookmark, FAQTracker } = require('../models/Schemas');
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 const { updateReputation } = require('../services/reputation');
-<<<<<<< HEAD
 const { analyzeFAQ, scoreContentModeration } = require('../services/aiService');
-=======
 const cfg = require('../config');
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
+const { broadcastQueueUpdate } = require('../services/queueService');
 
 // Apply admin guard to all routes in this file
 router.use(authMiddleware);
@@ -16,12 +14,20 @@ router.use(requireRole('admin'));
 // GET /api/admin/moderation-queue - User-submitted FAQs awaiting publication
 router.get('/moderation-queue', async (req, res) => {
   try {
-    const queue = await FAQThread.find({
+    const rawQueue = await FAQThread.find({
       status: { $in: ['pending_review', 'flagged'] },
       isMerged: false
     })
       .sort({ submittedForReviewAt: 1, createdAt: 1 })
       .populate('author', 'username email spPoints trustScore');
+
+    const { getQueuePosition } = require('../services/queueService');
+    const queue = await Promise.all(rawQueue.map(async (thread) => {
+      const pos = await getQueuePosition(thread._id);
+      const tObj = thread.toObject();
+      tObj.queuePosition = pos;
+      return tObj;
+    }));
 
     res.json(queue);
   } catch (error) {
@@ -71,7 +77,7 @@ router.put('/moderation-queue/:threadId', async (req, res) => {
 // POST /api/admin/moderation-queue/:threadId/review - Approve or reject publication
 router.post('/moderation-queue/:threadId/review', async (req, res) => {
   try {
-    const { action, reason } = req.body;
+    const { action, reason, penaltyPoints } = req.body;
     if (!['approve', 'reject'].includes(action)) {
       return res.status(400).json({ message: 'Review action must be approve or reject' });
     }
@@ -82,26 +88,72 @@ router.post('/moderation-queue/:threadId/review', async (req, res) => {
       return res.status(400).json({ message: 'FAQ is not awaiting review' });
     }
 
-    thread.reviewedBy = req.user._id;
-    thread.reviewedAt = Date.now();
-    thread.rejectionReason = action === 'reject' ? String(reason || '').trim().slice(0, 500) || 'Not approved for publication.' : null;
-    thread.status = action === 'approve' ? 'active' : 'rejected';
     if (action === 'approve') {
+      thread.reviewedBy = req.user._id;
+      thread.reviewedAt = Date.now();
+      thread.rejectionReason = null;
+      thread.rejectionPenaltyPoints = 0;
+      thread.status = 'active';
       thread.aiScores.toxicityScore = 0;
       thread.aiScores.spamProbability = 0;
+      await thread.save();
+
+      // Broadcast queue updates to all clients
+      try { broadcastQueueUpdate(req.app.get('io')); } catch (e) {}
+
+      await Notification.create({
+        userId: thread.author,
+        title: 'FAQ Published',
+        message: `Your FAQ "${thread.title.substring(0, 60)}" has been approved and published.`,
+        type: 'verification'
+      });
+
+      res.json({ message: `FAQ approved successfully`, thread });
+    } else {
+      // action === 'reject'
+      const rejectionReason = String(reason || '').trim().slice(0, 500) || 'Not approved for publication.';
+      const penalty = Number(penaltyPoints) || 0;
+
+      thread.reviewedBy = req.user._id;
+      thread.reviewedAt = Date.now();
+      thread.rejectionReason = rejectionReason;
+      thread.rejectionPenaltyPoints = penalty;
+      thread.status = 'rejected';
+      await thread.save();
+
+      // Send rejection notification
+      await Notification.create({
+        userId: thread.author,
+        title: '❌ Question Not Approved',
+        message: `Your question "${thread.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+        type: 'verification'
+      });
+
+      // Emit live socket notification just like approve
+      const notif = {
+        _id: `thread_reject_socket_${thread._id}_${Date.now()}`,
+        userId: thread.author,
+        title: '❌ Question Not Approved',
+        message: `Your question "${thread.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+        type: 'rejection',
+        createdAt: new Date()
+      };
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`user_${thread.author}`).emit('notification', notif);
+        io.to(thread.author.toString()).emit('notification', notif);
+      }
+
+      // Deduct SP points if requested
+      if (penalty > 0) {
+        await updateReputation(thread.author, -Math.abs(penalty), 'rejection_penalty');
+      }
+
+      // Broadcast queue updates to all clients
+      try { broadcastQueueUpdate(req.app.get('io')); } catch (e) {}
+
+      res.json({ message: `FAQ rejected successfully`, thread });
     }
-    await thread.save();
-
-    await Notification.create({
-      userId: thread.author,
-      title: action === 'approve' ? 'FAQ Published' : 'FAQ Not Published',
-      message: action === 'approve'
-        ? `Your FAQ "${thread.title.substring(0, 60)}" has been approved and published.`
-        : `Your FAQ "${thread.title.substring(0, 60)}" was rejected. ${thread.rejectionReason}`,
-      type: 'verification'
-    });
-
-    res.json({ message: `FAQ ${action === 'approve' ? 'approved' : 'rejected'} successfully`, thread });
   } catch (error) {
     console.error('Review queued FAQ error:', error.message);
     res.status(500).json({ message: 'Error reviewing queued FAQ' });
@@ -136,14 +188,18 @@ router.post('/verify-answer/:ansId', async (req, res) => {
     // 3. Delete all other replies for this thread
     await Answer.deleteMany({ threadId: thread._id, _id: { $ne: answer._id } });
     thread.repliesCount = 1;
+    thread.updatedAt = new Date();
     await thread.save();
+
+    // Broadcast queue updates to all clients
+    try { broadcastQueueUpdate(req.app.get('io')); } catch (e) {}
 
     // 4. Award reputation points to question author & answer author
     const qAuthorSpNum = parseInt(req.body.questionAuthorSp, 10) || 0;
     const aAuthorSpNum = parseInt(req.body.answerAuthorSp, 10) || 0;
 
     // 5. Advance FAQ tracker to verified status
-    const { FAQTracker } = require('../models/Schemas');
+
     const STATUS_MAP = {
       'received': 'Question Received', 'ai_analyzing': 'AI Analyzing',
       'expert_review': 'Expert Reviewing', 'verified': 'Answer Verified',
@@ -172,52 +228,21 @@ router.post('/verify-answer/:ansId', async (req, res) => {
         answerId: answer._id,
         threadTitle: thread.title
       });
+      io.to(answer.author.toString()).emit('notification', {
+        _id: `answer_verify_socket_${answer._id}_${Date.now()}`,
+        title: '🏆 Your Answer has been Verified!',
+        message: `Congratulations! Your answer on "${thread.title.substring(0, 60)}" has been verified by the IIT Ropar team. +${aAuthorSpNum} SP awarded.`,
+        type: 'verification',
+        createdAt: new Date()
+      });
       io.to(thread.author.toString()).emit('notification', {
-        title: '✅ Thread Promoted to Official FAQ',
-        message: `Your question is now an official FAQ. +${qAuthorSpNum} SP awarded.`,
-        type: 'verification'
+        _id: `thread_verify_socket_${thread._id}_${Date.now()}`,
+        title: '✅ FAQ Answer Verified',
+        message: `Your question "${thread.title.substring(0, 60)}" has been resolved and promoted to an official FAQ. +${qAuthorSpNum} SP awarded.`,
+        type: 'verification',
+        createdAt: new Date()
       });
     }
-
-    // 5. Advance FAQ tracker to verified status
-    const { FAQTracker } = require('../models/Schemas');
-    const STATUS_MAP = {
-      'received': 'Question Received', 'ai_analyzing': 'AI Analyzing',
-      'expert_review': 'Expert Reviewing', 'verified': 'Answer Verified',
-      'completed': 'Solution Completed'
-    };
-    let tracker = await FAQTracker.findOne({ threadId: thread._id });
-    if (!tracker) {
-      const ts = new Date();
-      tracker = await FAQTracker.create({
-        threadId: thread._id, status: 'verified',
-        steps: Object.keys(STATUS_MAP).map(s => ({ status: s, label: STATUS_MAP[s], timestamp: ts }))
-      });
-    } else if (tracker.status !== 'verified') {
-      tracker.steps.push({ status: 'verified', label: 'Answer Verified', timestamp: new Date() });
-      tracker.status = 'verified';
-      tracker.updatedAt = new Date();
-      await tracker.save();
-      io.emit('faq_status_update', { threadId: thread._id.toString(), status: 'verified', steps: tracker.steps });
-    }
-
-    // Emit real-time events
-    const io = req.app.get('io');
-    if (io) {
-      // Notify the answer author their answer was verified
-      io.to(answer.author.toString()).emit('answer_verified', {
-        threadId: thread._id,
-        answerId: answer._id,
-        threadTitle: thread.title
-      });
-      // Notify the question author the thread is now official
-      io.to(thread.author.toString()).emit('notification', {
-        title: '✅ Thread Promoted to Official FAQ',
-        message: `Your question is now an official FAQ. +${qAuthorSpNum} SP awarded.`,
-        type: 'verification'
-      });
-    }
-        io.emit('faq_status_update', { threadId: thread._id.toString(), status: 'verified', steps: tracker.steps });
 
     res.json({ 
       message: 'Answer verified successfully. FAQ is now locked, category updated, and SP awarded.', 
@@ -256,7 +281,11 @@ router.post('/make-official/:threadId', async (req, res) => {
     }
 
     thread.isOfficial = true;
+    thread.updatedAt = new Date();
     await thread.save();
+
+    // Broadcast queue updates to all clients
+    try { broadcastQueueUpdate(req.app.get('io')); } catch (e) {}
 
     const authorUser = await User.findById(thread.author);
     if (authorUser && authorUser.role === 'student') {
@@ -288,6 +317,9 @@ router.post('/merge-threads', async (req, res) => {
     source.mergedInto = target._id;
     source.status = 'merged';
     await source.save();
+
+    // Broadcast queue updates to all clients
+    try { broadcastQueueUpdate(req.app.get('io')); } catch (e) {}
 
     const answersToMove = await Answer.find({ threadId: source._id });
     for (let ans of answersToMove) {
@@ -336,7 +368,7 @@ router.get('/flagged', async (req, res) => {
 // POST /api/admin/moderate-action - Approve/delete content
 router.post('/moderate-action', async (req, res) => {
   try {
-    const { itemId, itemType, action } = req.body;
+    const { itemId, itemType, action, penaltyPoints } = req.body;
     let item;
 
     if (itemType === 'thread') {
@@ -346,36 +378,87 @@ router.post('/moderate-action', async (req, res) => {
       if (action === 'approve') {
         item.status = 'active';
         await item.save();
-        // Notify user their question is now live
-        const notif = new Notification({
+        // Construct in-memory notification and emit via socket (do not save to DB)
+        const notif = {
+          _id: `thread_approve_socket_${item._id}_${Date.now()}`,
           userId: item.author,
           title: '✅ Your Question is Live!',
           message: `Great news! Your question "${item.title.substring(0, 60)}" has been approved and is now visible in the community FAQ.`,
-          type: 'approval'
-        });
-        await notif.save();
-        // Emit socket notification if socket is available
+          type: 'approval',
+          createdAt: new Date()
+        };
         if (req.app.get('io')) {
           req.app.get('io').to(`user_${item.author}`).emit('notification', notif);
+          req.app.get('io').to(item.author.toString()).emit('notification', notif);
         }
       } else if (action === 'reject') {
+        const rejectionReason = 'Violated community guidelines.';
+        const penalty = Number(penaltyPoints) || 0;
+
         item.status = 'rejected';
+        item.rejectionReason = rejectionReason;
+        item.rejectionPenaltyPoints = penalty;
         await item.save();
-        const notif = new Notification({
+
+        const notif = {
+          _id: `thread_reject_socket_${item._id}_${Date.now()}`,
           userId: item.author,
           title: '❌ Question Not Approved',
-          message: `Your question "${item.title.substring(0, 60)}" was not approved. Please check the community guidelines and try again.`,
-          type: 'rejection'
-        });
-        await notif.save();
+          message: `Your question "${item.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+          type: 'rejection',
+          createdAt: new Date()
+        };
         if (req.app.get('io')) {
           req.app.get('io').to(`user_${item.author}`).emit('notification', notif);
+          req.app.get('io').to(item.author.toString()).emit('notification', notif);
+        }
+
+        await Notification.create({
+          userId: item.author,
+          title: '❌ Question Not Approved',
+          message: `Your question "${item.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+          type: 'verification'
+        });
+
+        if (penalty > 0) {
+          await updateReputation(item.author, -Math.abs(penalty), 'rejection_penalty');
         }
       } else if (action === 'delete') {
-        item.status = 'spam';
+        const rejectionReason = 'Violated toxicity/spam guidelines.';
+        const penalty = penaltyPoints !== undefined ? Number(penaltyPoints) : 5;
+
+        item.status = 'rejected';
+        item.rejectionReason = rejectionReason;
+        item.rejectionPenaltyPoints = penalty;
         await item.save();
-        await updateReputation(item.author, -5, 'toxic_penalty');
+
+        const notif = {
+          _id: `thread_delete_socket_${item._id}_${Date.now()}`,
+          userId: item.author,
+          title: '❌ Question Not Approved',
+          message: `Your question "${item.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+          type: 'rejection',
+          createdAt: new Date()
+        };
+        if (req.app.get('io')) {
+          req.app.get('io').to(`user_${item.author}`).emit('notification', notif);
+          req.app.get('io').to(item.author.toString()).emit('notification', notif);
+        }
+
+        await Notification.create({
+          userId: item.author,
+          title: '❌ Question Not Approved',
+          message: `Your question "${item.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+          type: 'verification'
+        });
+
+        if (penalty > 0) {
+          await updateReputation(item.author, -Math.abs(penalty), 'toxic_penalty');
+        }
       }
+
+      // Broadcast queue updates to all clients
+      try { broadcastQueueUpdate(req.app.get('io')); } catch (e) {}
     } else {
       item = await Answer.findById(itemId);
       if (!item) return res.status(404).json({ message: 'Answer not found' });
@@ -384,9 +467,36 @@ router.post('/moderate-action', async (req, res) => {
         item.aiScores.toxicityScore = 0;
         item.aiScores.spamProbability = 0;
         await item.save();
+
+        const thread = await FAQThread.findById(item.threadId);
+        const notif = {
+          _id: `answer_approve_socket_${item._id}_${Date.now()}`,
+          userId: item.author,
+          title: '✅ Your Answer has been Approved!',
+          message: `Your answer on "${thread ? thread.title.substring(0, 60) : 'FAQ thread'}" has been approved by the moderator.`,
+          type: 'approval',
+          createdAt: new Date()
+        };
+        if (req.app.get('io')) {
+          req.app.get('io').to(`user_${item.author}`).emit('notification', notif);
+          req.app.get('io').to(item.author.toString()).emit('notification', notif);
+        }
       } else if (action === 'delete') {
+        const thread = await FAQThread.findById(item.threadId);
+        await Notification.create({
+          userId: item.author,
+          title: '⚠️ Answer Removed',
+          message: `Your answer on "${thread ? thread.title.substring(0, 30) : 'FAQ thread'}..." was deleted by the moderator.`,
+          type: 'verification'
+        });
+
+        const penalty = penaltyPoints !== undefined ? Number(penaltyPoints) : 5;
+        if (penalty > 0) {
+          await updateReputation(item.author, -Math.abs(penalty), 'toxic_penalty');
+        }
+
+        await Comment.deleteMany({ answerId: item._id });
         await Answer.findByIdAndDelete(itemId);
-        await updateReputation(item.author, -5, 'toxic_penalty');
       }
     }
 
@@ -409,10 +519,17 @@ router.get('/pending-queue', async (req, res) => {
     } else {
       sortCriteria = { queueNumber: 1 }; // default FIFO
     }
-    const threads = await FAQThread.find({ status: 'pending' })
+    const rawThreads = await FAQThread.find({ status: 'pending' })
       .sort(sortCriteria)
       .populate('author', 'username')
       .lean();
+
+    const { getQueuePosition } = require('../services/queueService');
+    const threads = await Promise.all(rawThreads.map(async (thread) => {
+      const pos = await getQueuePosition(thread._id);
+      return { ...thread, queuePosition: pos };
+    }));
+
     res.json(threads);
   } catch (error) {
     console.error('Pending queue error:', error.message);
@@ -423,37 +540,61 @@ router.get('/pending-queue', async (req, res) => {
 // POST /api/admin/process-queue/:threadId — Approve or reject a queued thread
 router.post('/process-queue/:threadId', async (req, res) => {
   try {
-    const { action } = req.body; // 'approve' | 'reject'
+    const { action, penaltyPoints } = req.body; // 'approve' | 'reject'
     const thread = await FAQThread.findById(req.params.threadId);
     if (!thread) return res.status(404).json({ message: 'Thread not found' });
 
     if (action === 'approve') {
       thread.status = 'active';
       await thread.save();
-      const notif = new Notification({
+      const notif = {
+        _id: `thread_approve_socket_${thread._id}_${Date.now()}`,
         userId: thread.author,
         title: '✅ Your Question is Live!',
         message: `Your question "${thread.title.substring(0, 60)}" has been approved and is now in the community FAQ.`,
-        type: 'approval'
-      });
-      await notif.save();
+        type: 'approval',
+        createdAt: new Date()
+      };
       if (req.app.get('io')) {
         req.app.get('io').to(`user_${thread.author}`).emit('notification', notif);
+        req.app.get('io').to(thread.author.toString()).emit('notification', notif);
       }
     } else if (action === 'reject') {
+      const rejectionReason = 'Rejected by queue processing.';
+      const penalty = Number(penaltyPoints) || 0;
+
       thread.status = 'rejected';
+      thread.rejectionReason = rejectionReason;
+      thread.rejectionPenaltyPoints = penalty;
       await thread.save();
-      const notif = new Notification({
+
+      const notif = {
+        _id: `thread_reject_socket_${thread._id}_${Date.now()}`,
         userId: thread.author,
         title: '❌ Question Not Approved',
-        message: `Your question "${thread.title.substring(0, 60)}" was not approved. Please revise and try again.`,
-        type: 'rejection'
-      });
-      await notif.save();
+        message: `Your question "${thread.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+        type: 'rejection',
+        createdAt: new Date()
+      };
       if (req.app.get('io')) {
         req.app.get('io').to(`user_${thread.author}`).emit('notification', notif);
+        req.app.get('io').to(thread.author.toString()).emit('notification', notif);
+      }
+
+      await Notification.create({
+        userId: thread.author,
+        title: '❌ Question Not Approved',
+        message: `Your question "${thread.title.substring(0, 60)}" was not approved. Reason: ${rejectionReason}`,
+        type: 'verification'
+      });
+
+      if (penalty > 0) {
+        await updateReputation(thread.author, -Math.abs(penalty), 'rejection_penalty');
       }
     }
+
+    // Broadcast queue updates to all clients
+    try { broadcastQueueUpdate(req.app.get('io')); } catch (e) {}
 
     res.json({ message: `Queue item ${action}d`, thread });
   } catch (error) {
@@ -468,18 +609,14 @@ router.get('/dashboard-stats', async (req, res) => {
     const usersCount = await User.countDocuments({ role: 'student' });
     const threadsCount = await FAQThread.countDocuments({ status: 'active', isMerged: false });
     const verifiedAnswersCount = await Answer.countDocuments({ isVerified: true });
-<<<<<<< HEAD
     const pendingApprovalCount = await FAQThread.countDocuments({ status: { $in: ['pending_review', 'flagged'] } }) + 
       await Answer.countDocuments({ 
-=======
-    const pendingApprovalCount = await FAQThread.countDocuments({ status: 'pending' }) +
-      await Answer.countDocuments({
->>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
         $or: [
           { 'aiScores.toxicityScore': { $gte: cfg.TOXICITY_FLAG_THRESHOLD } },
           { 'aiScores.spamProbability': { $gte: cfg.SPAM_FLAG_THRESHOLD } }
         ]
       });
+    const rejectedCount = await FAQThread.countDocuments({ status: 'rejected' });
 
     const topContributors = await User.find({ role: 'student' })
       .sort({ spPoints: -1 })
@@ -504,7 +641,8 @@ router.get('/dashboard-stats', async (req, res) => {
         usersCount,
         threadsCount,
         verifiedAnswersCount,
-        pendingApprovalCount
+        pendingApprovalCount,
+        rejectedCount
       },
       topContributors,
       categoryDistribution: categoryStats,
@@ -728,6 +866,19 @@ router.post('/analytics/log-activity', async (req, res) => {
     res.json({ message: 'Activity logged' });
   } catch (error) {
     res.status(500).json({ message: 'Error logging activity' });
+  }
+});
+
+// GET /api/admin/rejected-list - List all rejected questions
+router.get('/rejected-list', async (req, res) => {
+  try {
+    const rejectedThreads = await FAQThread.find({ status: 'rejected' })
+      .sort({ reviewedAt: -1, updatedAt: -1 })
+      .populate('author', 'username email');
+    res.json(rejectedThreads);
+  } catch (error) {
+    console.error('Fetch rejected list error:', error.message);
+    res.status(500).json({ message: 'Error retrieving rejected questions' });
   }
 });
 

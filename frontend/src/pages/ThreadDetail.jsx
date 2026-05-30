@@ -280,8 +280,15 @@ const ThreadDetail = () => {
       }
     } else if (user.role === 'admin') {
       if (!confirm("Are you sure you want to delete this answer?")) return;
+      const pointsInput = window.prompt("Enter SP points to deduct from the author (or 0 for no penalty):", "5");
+      if (pointsInput === null) return; // user cancelled
+      const penaltyPoints = parseInt(pointsInput, 10);
+      if (isNaN(penaltyPoints) || penaltyPoints < 0) {
+        addToast('Error', 'Invalid SP points entered', 'verification');
+        return;
+      }
       try {
-        await api.delete(`/threads/answers/${ans._id}`);
+        await api.delete(`/threads/answers/${ans._id}`, { params: { penaltyPoints } });
         fetchThreadDetails();
         addToast('Moderated', 'Answer removed successfully.', 'reply');
       } catch (error) {
@@ -342,7 +349,20 @@ const ThreadDetail = () => {
       </button>
 
       {/* Live FAQ Tracking Panel */}
-      {thread && <LiveFAQTracker threadId={thread._id} />}
+      {thread && !thread.isOfficial && <LiveFAQTracker threadId={thread._id} />}
+
+      {/* Review Status Banner */}
+      {thread && thread.status !== 'active' && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-start space-x-3 text-amber-600 dark:text-amber-400">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
+          <div>
+            <h4 className="font-extrabold text-xs uppercase tracking-wider mb-1">Question Under Review</h4>
+            <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-350">
+              This question is currently under review by the IIT Ropar Team. It will become visible to the community once it is approved and published.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Question Container Card */}
       <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-900/60 p-6 rounded-3xl shadow-sm space-y-4">
@@ -965,7 +985,11 @@ const ThreadDetail = () => {
       </div>
 
       {/* Answer Submission Box Form */}
-      {hasVerifiedAnswer ? (
+      {thread && thread.status !== 'active' ? (
+        <div className="bg-slate-50 dark:bg-brand-950/20 border border-slate-200 dark:border-brand-850 p-5 rounded-3xl text-center text-xs text-slate-500 dark:text-slate-400 mt-8">
+          🔒 This question is currently under review. Replies cannot be posted until it is approved by the IIT Ropar Team.
+        </div>
+      ) : hasVerifiedAnswer ? (
         <div className="bg-emerald-50 dark:bg-brand-950/25 border border-emerald-500/20 p-5 rounded-3xl text-center text-xs text-emerald-700 dark:text-emerald-450 mt-8 font-semibold">
           🔒 This official FAQ has been verified and locked by administrators. No further replies can be added.
         </div>
