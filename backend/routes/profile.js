@@ -40,7 +40,9 @@ router.get('/:userId', authMiddleware, async (req, res) => {
 
     // 1. Raised questions (FAQ threads authored by user)
     const mayViewPrivate = req.user.role === 'admin' || req.user._id.toString() === targetUserId;
-    const visibleStatus = mayViewPrivate ? { $ne: 'spam' } : 'active';
+    // Determine which thread statuses are visible to the requester.
+    // Students should not see 'rejected' threads; admins can view all non-spam threads.
+    const visibleStatus = mayViewPrivate ? { $nin: ['spam', 'rejected'] } : 'active';
     const rawRaisedThreads = await FAQThread.find({ author: targetUserId, status: visibleStatus });
     const raisedThreads = await Promise.all(rawRaisedThreads.map(async (thread) => {
       const answers = await Answer.find({ threadId: thread._id });
@@ -55,11 +57,11 @@ router.get('/:userId', authMiddleware, async (req, res) => {
     // 2. Answers given by user
     const answersGiven = await Answer.find({ author: targetUserId });
     
-    // Find answer thread IDs to query their details
+    // Find answer thread IDs to query their details (exclude rejected threads for student view)
     const answerThreadIds = answersGiven.map(ans => ans.threadId);
-    const threadsAnswered = await FAQThread.find({ _id: { $in: answerThreadIds } });
-
-    // 3. Resolved questions (user's threads that have at least one verified answer)
+    const threadsAnswered = await FAQThread.find({ _id: { $in: answerThreadIds }, status: { $ne: 'rejected' } });
+    
+    // 2. Answers given by userstions (user's threads that have at least one verified answer)
     const raisedThreadIds = rawRaisedThreads.map(t => t._id);
     const verifiedAnswersForUserThreads = await Answer.find({ threadId: { $in: raisedThreadIds }, isVerified: true });
     const resolvedThreadIds = verifiedAnswersForUserThreads.map(ans => ans.threadId.toString());
