@@ -497,14 +497,16 @@ const FAQFeed = () => {
         </section>
       )}
 
-      <TrendingSection
-        threads={trending}
-        loading={trendingLoading}
-        onSelect={(thread) => {
-          setSelectedThreadId(thread._id);
-          window.location.hash = thread.faqNumber ? `#faq-${thread.faqNumber}` : `#thread-${thread._id}`;
-        }}
-      />
+      {mode === 'official' && (
+        <TrendingSection
+          threads={trending}
+          loading={trendingLoading}
+          onSelect={(thread) => {
+            setSelectedThreadId(thread._id);
+            window.location.hash = thread.faqNumber ? `#faq-${thread.faqNumber}` : `#thread-${thread._id}`;
+          }}
+        />
+      )}
 
       <section className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-brand-800 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">

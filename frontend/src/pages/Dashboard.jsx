@@ -8,7 +8,12 @@ import {
   CheckCircle, 
   AlertTriangle, 
   ArrowRight,
-  GitMerge
+  GitMerge,
+  Clock,
+  ArrowUp,
+  ArrowDown,
+  Zap,
+  Loader2
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -17,6 +22,12 @@ const Dashboard = () => {
   const [flaggedContent, setFlaggedContent] = useState({ threads: [], answers: [] });
   const [studentStats, setStudentStats] = useState(null);
   const [error, setError] = useState(false);
+  
+  // Pending Queue state
+  const [pendingQueue, setPendingQueue] = useState([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueSort, setQueueSort] = useState('queueNumber');
+  const [processingId, setProcessingId] = useState(null);
   
   // Merge state
   const [mergeSource, setMergeSource] = useState('');
@@ -28,11 +39,18 @@ const Dashboard = () => {
     if (user) {
       if (user.role === 'admin') {
         fetchAdminData();
+        fetchPendingQueue();
       } else {
         fetchStudentData();
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchPendingQueue();
+    }
+  }, [queueSort]);
 
   const fetchAdminData = async () => {
     setError(false);
@@ -48,6 +66,35 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Fetch admin stats error:', error.message);
       setError(true);
+    }
+  };
+
+  const fetchPendingQueue = async () => {
+    setQueueLoading(true);
+    try {
+      const res = await api.get('/admin/pending-queue', { params: { sort: queueSort } });
+      setPendingQueue(res.data);
+    } catch (err) {
+      console.error('Pending queue error:', err.message);
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const handleQueueAction = async (threadId, action) => {
+    setProcessingId(threadId);
+    try {
+      await api.post(`/admin/process-queue/${threadId}`, { action });
+      showAlert(
+        action === 'approve' ? '✅ Question approved and published!' : '❌ Question rejected.',
+        action === 'approve' ? 'success' : 'info'
+      );
+      await fetchPendingQueue();
+      await fetchAdminData(); // refresh counters
+    } catch (err) {
+      showAlert('Failed to process queue item.', 'error');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -148,7 +195,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Raised issues with nested answers */}
-          <div className="md:col-span-2 bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-5 rounded-2xl shadow-sm space-y-3">
+          <div className="md:col-span-2 bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-5 rounded-2xl shadow-sm space-y-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b pb-2 dark:border-brand-950">My Raised Issues & Answers</span>
             <div className="divide-y divide-slate-100 dark:divide-brand-950 text-xs">
               {raisedThreads.length === 0 ? (
@@ -192,7 +239,7 @@ const Dashboard = () => {
           </div>
 
           {/* Solved Answers by User */}
-          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-5 rounded-2xl shadow-sm space-y-3 h-fit">
+          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-5 rounded-2xl shadow-sm space-y-3 h-fit">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b pb-2 dark:border-brand-950">My Solved (Verified) Answers</span>
             <div className="space-y-3 text-xs">
               {!solvedAnswers || solvedAnswers.length === 0 ? (
@@ -255,33 +302,151 @@ const Dashboard = () => {
         {/* Counter cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           
-          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-4 rounded-xl shadow-sm text-center">
+          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-4 rounded-xl shadow-sm text-center">
             <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">Students</span>
             <h3 className="text-lg font-black text-slate-800 dark:text-white mt-0.5">{counters.usersCount}</h3>
           </div>
 
-          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-4 rounded-xl shadow-sm text-center">
+          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-4 rounded-xl shadow-sm text-center">
             <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">FAQ Threads</span>
             <h3 className="text-lg font-black text-slate-800 dark:text-white mt-0.5">{counters.threadsCount}</h3>
           </div>
 
-          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-4 rounded-xl shadow-sm text-center">
+          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-4 rounded-xl shadow-sm text-center">
             <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">Verified Answers</span>
             <h3 className="text-lg font-black text-slate-800 dark:text-white mt-0.5">{counters.verifiedAnswersCount}</h3>
           </div>
 
-          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-4 rounded-xl shadow-sm text-center">
+          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-4 rounded-xl shadow-sm text-center">
             <span className="text-[9px] font-bold text-slate-450 uppercase tracking-wide">Moderation Queue</span>
             <h3 className="text-lg font-black text-slate-800 dark:text-white mt-0.5">{counters.pendingApprovalCount}</h3>
           </div>
 
         </div>
 
+        {/* Pending Question Queue */}
+        <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-100 dark:border-brand-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white">Pending Question Queue</h3>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-brand-800 px-2 py-0.5 rounded-full">{pendingQueue.length} in queue</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-400">Sort by:</span>
+              <div className="flex bg-slate-100 dark:bg-brand-950 rounded-lg p-0.5">
+                {[{ key: 'queueNumber', label: 'Queue #' }, { key: 'priority', label: '🔴 Priority' }, { key: 'newest', label: '🕐 Newest' }].map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setQueueSort(opt.key)}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                      queueSort === opt.key
+                        ? 'bg-white dark:bg-brand-800 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-450 dark:text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={fetchPendingQueue} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-brand-800 transition-colors text-slate-400" title="Refresh">
+                <Loader2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {queueLoading ? (
+            <div className="p-8 text-center">
+              <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs text-slate-400">Loading queue...</p>
+            </div>
+          ) : pendingQueue.length === 0 ? (
+            <div className="p-8 text-center space-y-2">
+              <div className="text-3xl">🎉</div>
+              <p className="text-xs font-bold text-slate-500">Queue is clear — all caught up!</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-brand-950 max-h-96 overflow-y-auto">
+              {pendingQueue.map(thread => {
+                const priorityColor = thread.priority === 'urgent' ? 'bg-rose-500/10 border-rose-500/30 text-rose-500'
+                  : thread.priority === 'high' ? 'bg-orange-500/10 border-orange-500/30 text-orange-500'
+                  : 'bg-slate-50 dark:bg-brand-950 border-slate-200 dark:border-brand-800 text-slate-400';
+                return (
+                  <div key={thread._id} className="p-4 flex items-start justify-between gap-4 hover:bg-slate-50 dark:hover:bg-brand-950/50 transition-colors">
+                    {/* Left: queue # + info */}
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="flex flex-col items-center shrink-0">
+                        <span className="w-8 h-8 rounded-lg bg-amber-500 text-white text-[11px] font-black flex items-center justify-center">
+                          {thread.queueNumber}
+                        </span>
+                        {thread.priority !== 'normal' && (
+                          <span className={`mt-1 px-1 py-0.5 rounded text-[8px] font-black uppercase ${priorityColor} flex items-center gap-0.5`}>
+                            <Zap className="w-2.5 h-2.5" />{thread.priority}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 dark:text-white leading-snug">{thread.title}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[9px] font-semibold text-slate-400">{thread.category}</span>
+                          <span className="text-[9px] text-slate-300 dark:text-slate-600">·</span>
+                          <span className="text-[9px] font-semibold text-slate-400 capitalize">{thread.author?.username || thread.authorName || 'Unknown'}</span>
+                          <span className="text-[9px] text-slate-300 dark:text-slate-600">·</span>
+                          <span className="text-[9px] text-slate-400">
+                            {thread.createdAt ? new Date(thread.createdAt).toLocaleDateString() : 'Just now'}
+                          </span>
+                        </div>
+                        {thread.tags?.length > 0 && (
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {thread.tags.slice(0, 3).map(tag => (
+                              <span key={tag} className="px-1.5 py-0.5 bg-brand-500/10 text-brand-500 text-[8px] font-bold rounded-full">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Right: actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setSelectedThreadId(thread._id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-brand-800 transition-colors"
+                        title="View thread"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleQueueAction(thread._id, 'reject')}
+                        disabled={processingId === thread._id}
+                        className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-slate-500 hover:text-rose-500 text-[10px] font-bold border border-transparent hover:border-rose-500/30 transition-all flex items-center gap-1 disabled:opacity-40"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleQueueAction(thread._id, 'approve')}
+                        disabled={processingId === thread._id}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold shadow-sm transition-all flex items-center gap-1 disabled:opacity-40"
+                      >
+                        {processingId === thread._id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <ArrowUp className="w-3 h-3" />
+                        )}
+                        Publish
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Split Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Moderation Flags list */}
-          <div className="lg:col-span-2 bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-5 rounded-2xl shadow-sm space-y-4">
+          <div className="lg:col-span-2 bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-5 rounded-2xl shadow-sm space-y-4">
             <div className="flex items-center space-x-2 border-b pb-2 dark:border-brand-950">
               <AlertTriangle className="w-4 h-4 text-rose-500" />
               <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Toxicity Flags Queue ({flaggedContent.threads.length + flaggedContent.answers.length})</span>
@@ -342,7 +507,7 @@ const Dashboard = () => {
           </div>
 
           {/* Merge Duplicate FAQ Form */}
-          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-955 p-5 rounded-2xl shadow-sm space-y-4 h-fit">
+          <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-950 p-5 rounded-2xl shadow-sm space-y-4 h-fit">
             <div className="flex items-center space-x-2 border-b pb-2 dark:border-brand-950">
               <GitMerge className="w-4 h-4 text-brand-500" />
               <span className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Merge Duplicate FAQs</span>

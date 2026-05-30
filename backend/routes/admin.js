@@ -3,6 +3,7 @@ const router = express.Router();
 const { FAQThread, Answer, User, Notification, SPTransaction, Comment, SearchLog, UserActivity, Feedback, SystemMetrics, Bookmark } = require('../models/Schemas');
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 const { updateReputation } = require('../services/reputation');
+const cfg = require('../config');
 
 // Apply admin guard to all routes in this file
 router.use(authMiddleware);
@@ -39,15 +40,8 @@ router.post('/verify-answer/:ansId', async (req, res) => {
     await thread.save();
 
     // 4. Award reputation points to question author & answer author
-    const qAuthorSpNum = parseInt(questionAuthorSp, 10) || 0;
-    const aAuthorSpNum = parseInt(answerAuthorSp, 10) || 0;
-
-    if (qAuthorSpNum > 0) {
-      await updateReputation(thread.author, qAuthorSpNum, 'official_faq');
-    }
-    if (aAuthorSpNum > 0) {
-      await updateReputation(answer.author, aAuthorSpNum, 'verified_answer');
-    }
+    const qAuthorSpNum = parseInt(req.body.questionAuthorSp, 10) || 0;
+    const aAuthorSpNum = parseInt(req.body.answerAuthorSp, 10) || 0;
 
     // 5. Advance FAQ tracker to verified status
     const { FAQTracker } = require('../models/Schemas');
@@ -68,26 +62,23 @@ router.post('/verify-answer/:ansId', async (req, res) => {
       tracker.status = 'verified';
       tracker.updatedAt = new Date();
       await tracker.save();
-      io.emit('faq_status_update', { threadId: thread._id.toString(), status: 'verified', steps: tracker.steps });
     }
 
-    // Emit real-time events
+    // Emit real-time events — get io here, inside scope
     const io = req.app.get('io');
     if (io) {
-      // Notify the answer author their answer was verified
+      io.emit('faq_status_update', { threadId: thread._id.toString(), status: 'verified', steps: tracker.steps });
       io.to(answer.author.toString()).emit('answer_verified', {
         threadId: thread._id,
         answerId: answer._id,
         threadTitle: thread.title
       });
-      // Notify the question author the thread is now official
       io.to(thread.author.toString()).emit('notification', {
         title: '✅ Thread Promoted to Official FAQ',
         message: `Your question is now an official FAQ. +${qAuthorSpNum} SP awarded.`,
         type: 'verification'
       });
     }
-        io.emit('faq_status_update', { threadId: thread._id.toString(), status: 'verified', steps: tracker.steps });
 
     res.json({ 
       message: 'Answer verified successfully. FAQ is now locked, category updated, and SP awarded.', 
@@ -187,10 +178,10 @@ router.post('/merge-threads', async (req, res) => {
 router.get('/flagged', async (req, res) => {
   try {
     const flaggedThreads = await FAQThread.find({ status: 'flagged' });
-    const flaggedAnswers = await Answer.find({ 
+    const flaggedAnswers = await Answer.find({
       $or: [
-        { 'aiScores.toxicityScore': { $gte: 0.5 } },
-        { 'aiScores.spamProbability': { $gte: 0.5 } }
+        { 'aiScores.toxicityScore': { $gte: cfg.TOXICITY_FLAG_THRESHOLD } },
+        { 'aiScores.spamProbability': { $gte: cfg.SPAM_FLAG_THRESHOLD } }
       ]
     });
 
@@ -216,6 +207,31 @@ router.post('/moderate-action', async (req, res) => {
       if (action === 'approve') {
         item.status = 'active';
         await item.save();
+        // Notify user their question is now live
+        const notif = new Notification({
+          userId: item.author,
+          title: '✅ Your Question is Live!',
+          message: `Great news! Your question "${item.title.substring(0, 60)}" has been approved and is now visible in the community FAQ.`,
+          type: 'approval'
+        });
+        await notif.save();
+        // Emit socket notification if socket is available
+        if (req.app.get('io')) {
+          req.app.get('io').to(`user_${item.author}`).emit('notification', notif);
+        }
+      } else if (action === 'reject') {
+        item.status = 'rejected';
+        await item.save();
+        const notif = new Notification({
+          userId: item.author,
+          title: '❌ Question Not Approved',
+          message: `Your question "${item.title.substring(0, 60)}" was not approved. Please check the community guidelines and try again.`,
+          type: 'rejection'
+        });
+        await notif.save();
+        if (req.app.get('io')) {
+          req.app.get('io').to(`user_${item.author}`).emit('notification', notif);
+        }
       } else if (action === 'delete') {
         item.status = 'spam';
         await item.save();
@@ -242,17 +258,82 @@ router.post('/moderate-action', async (req, res) => {
   }
 });
 
+// GET /api/admin/pending-queue — All pending threads, sortable
+router.get('/pending-queue', async (req, res) => {
+  try {
+    const { sort = 'queueNumber' } = req.query;
+    let sortCriteria;
+    if (sort === 'priority') {
+      sortCriteria = { priority: -1, queueNumber: 1 }; // urgent=2, high=1, normal=0
+    } else if (sort === 'newest') {
+      sortCriteria = { queueAssignedAt: -1 };
+    } else {
+      sortCriteria = { queueNumber: 1 }; // default FIFO
+    }
+    const threads = await FAQThread.find({ status: 'pending' })
+      .sort(sortCriteria)
+      .populate('author', 'username')
+      .lean();
+    res.json(threads);
+  } catch (error) {
+    console.error('Pending queue error:', error.message);
+    res.status(500).json({ message: 'Error fetching pending queue' });
+  }
+});
+
+// POST /api/admin/process-queue/:threadId — Approve or reject a queued thread
+router.post('/process-queue/:threadId', async (req, res) => {
+  try {
+    const { action } = req.body; // 'approve' | 'reject'
+    const thread = await FAQThread.findById(req.params.threadId);
+    if (!thread) return res.status(404).json({ message: 'Thread not found' });
+
+    if (action === 'approve') {
+      thread.status = 'active';
+      await thread.save();
+      const notif = new Notification({
+        userId: thread.author,
+        title: '✅ Your Question is Live!',
+        message: `Your question "${thread.title.substring(0, 60)}" has been approved and is now in the community FAQ.`,
+        type: 'approval'
+      });
+      await notif.save();
+      if (req.app.get('io')) {
+        req.app.get('io').to(`user_${thread.author}`).emit('notification', notif);
+      }
+    } else if (action === 'reject') {
+      thread.status = 'rejected';
+      await thread.save();
+      const notif = new Notification({
+        userId: thread.author,
+        title: '❌ Question Not Approved',
+        message: `Your question "${thread.title.substring(0, 60)}" was not approved. Please revise and try again.`,
+        type: 'rejection'
+      });
+      await notif.save();
+      if (req.app.get('io')) {
+        req.app.get('io').to(`user_${thread.author}`).emit('notification', notif);
+      }
+    }
+
+    res.json({ message: `Queue item ${action}d`, thread });
+  } catch (error) {
+    console.error('Process queue error:', error.message);
+    res.status(500).json({ message: 'Error processing queue' });
+  }
+});
+
 // GET /api/admin/dashboard-stats
 router.get('/dashboard-stats', async (req, res) => {
   try {
     const usersCount = await User.countDocuments({ role: 'student' });
     const threadsCount = await FAQThread.countDocuments({ status: 'active', isMerged: false });
     const verifiedAnswersCount = await Answer.countDocuments({ isVerified: true });
-    const pendingApprovalCount = await FAQThread.countDocuments({ status: 'flagged' }) + 
-      await Answer.countDocuments({ 
+    const pendingApprovalCount = await FAQThread.countDocuments({ status: 'pending' }) +
+      await Answer.countDocuments({
         $or: [
-          { 'aiScores.toxicityScore': { $gte: 0.5 } },
-          { 'aiScores.spamProbability': { $gte: 0.5 } }
+          { 'aiScores.toxicityScore': { $gte: cfg.TOXICITY_FLAG_THRESHOLD } },
+          { 'aiScores.spamProbability': { $gte: cfg.SPAM_FLAG_THRESHOLD } }
         ]
       });
 
