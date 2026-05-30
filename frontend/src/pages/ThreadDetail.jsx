@@ -735,7 +735,7 @@ const ThreadDetail = () => {
                         rows="3"
                         value={editAnswerBody}
                         onChange={(e) => setEditAnswerBody(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-brand-955 border border-slate-200 dark:border-brand-850 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-brand-950 border border-slate-200 dark:border-brand-850 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:ring-1 focus:ring-brand-500 outline-none resize-none"
                       />
                       <div className="flex justify-end space-x-2">
                         <button

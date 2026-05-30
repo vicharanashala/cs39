@@ -284,7 +284,11 @@ router.post('/create', authMiddleware, async (req, res) => {
     const aiAnalysis = analyzeFAQ(title, body);
     const aiScores = scoreContentModeration(body, title);
 
+<<<<<<< HEAD
     let threadStatus = req.user.role === 'admin' ? 'active' : 'pending_review';
+=======
+    let threadStatus = 'active';
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
     if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
       threadStatus = 'flagged';
     }
@@ -296,7 +300,10 @@ router.post('/create', authMiddleware, async (req, res) => {
       author: req.user._id,
       authorName: req.user.username,
       status: threadStatus,
+<<<<<<< HEAD
       submittedForReviewAt: Date.now(),
+=======
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
       priority: aiAnalysis.priority,
       tags: aiAnalysis.tags,
       summary: aiAnalysis.summary,
@@ -649,7 +656,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const aiScores = scoreContentModeration(body, title);
     const aiAnalysis = analyzeFAQ(title, body);
+<<<<<<< HEAD
     let threadStatus = req.user.role === 'admin' ? 'active' : 'pending_review';
+=======
+    let threadStatus = 'active';
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
     if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
       threadStatus = 'flagged';
     }

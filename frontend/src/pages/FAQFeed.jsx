@@ -18,7 +18,11 @@ const TrendingSection = ({ threads, loading, onSelect }) => {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
+<<<<<<< HEAD
         <span className="soft-accent text-[10px] font-extrabold uppercase tracking-widest">🔥 Trending</span>
+=======
+        <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-500">🔥 Trending</span>
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
         <div className="flex-1 h-px bg-slate-200 dark:bg-brand-800" />
       </div>
       <div className="flex gap-3 overflow-x-auto pb-1 py-1 scrollbar-thin">
@@ -404,10 +408,17 @@ const FAQFeed = () => {
       </header>
 
       {/* ── Text to Speech Widget ─────────────────────────────────────────────── */}
+<<<<<<< HEAD
       <div className="soft-panel bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-slate-100 dark:border-brand-800 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2 shrink-0">
             <Volume2 className="soft-accent w-4 h-4" />
+=======
+      <div className="bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-slate-100 dark:border-brand-800 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <Volume2 className="w-4 h-4 text-brand-500" />
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
             <span className="text-xs font-extrabold text-slate-700 dark:text-slate-200">Text to Speech</span>
             {localStorage.getItem('WIT_API_KEY') ? (
               <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
@@ -426,7 +437,11 @@ const FAQFeed = () => {
               className="flex-1 border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 rounded-lg px-3 py-1.5 text-[11px] outline-none text-slate-700 dark:text-slate-200 w-full sm:w-52"
             />
             <div className="flex gap-1.5">
+<<<<<<< HEAD
               <button onClick={ttsSaveKey} disabled={ttsSaving} className="soft-primary px-3 py-1.5 disabled:opacity-50 rounded-lg text-[11px] font-bold shrink-0 transition-colors">
+=======
+              <button onClick={ttsSaveKey} disabled={ttsSaving} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors">
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                 {ttsSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save Key'}
               </button>
               {!localStorage.getItem('WIT_API_KEY') && voices.length > 0 && (
@@ -438,7 +453,11 @@ const FAQFeed = () => {
                   {voices.slice(0, 10).map(v => <option key={v.name} value={v.name}>{v.name.split(' ').slice(0, 2).join(' ')}</option>)}
                 </select>
               )}
+<<<<<<< HEAD
               <button onClick={ttsPlay} disabled={!ttsText.trim() || ttsStatus === 'loading' || ttsStatus === 'playing'} className="soft-primary px-3 py-1.5 disabled:opacity-40 rounded-lg text-[11px] font-bold shrink-0 transition-colors flex items-center gap-1.5">
+=======
+              <button onClick={ttsPlay} disabled={!ttsText.trim() || ttsStatus === 'loading' || ttsStatus === 'playing'} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors flex items-center gap-1.5">
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                 {ttsStatus === 'loading' ? <Loader2 className="w-3 h-3 animate-spin" /> : ttsStatus === 'playing' ? <Square className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
                 {ttsStatus === 'playing' ? 'Stop' : 'Speak'}
               </button>
@@ -486,7 +505,11 @@ const FAQFeed = () => {
               onClick={() => setSelectedGroup(group.id)}
               className={`p-4 rounded-2xl border text-left transition-colors ${
                 selectedGroup === group.id
+<<<<<<< HEAD
                   ? 'soft-primary border-transparent'
+=======
+                  ? 'border-brand-500 bg-brand-500 text-white'
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                   : 'bg-white dark:bg-brand-900 border-slate-200 dark:border-brand-800 text-slate-800 dark:text-white'
               }`}
             >
@@ -494,13 +517,31 @@ const FAQFeed = () => {
               <p className={`text-[11px] mt-1 ${selectedGroup === group.id ? 'text-white/75' : 'text-slate-400'}`}>
                 {group.description}
               </p>
+<<<<<<< HEAD
               <p className={`text-xs font-bold mt-4 ${selectedGroup === group.id ? 'text-white' : 'soft-accent'}`}>
+=======
+              <p className={`text-xs font-bold mt-4 ${selectedGroup === group.id ? 'text-white' : 'text-brand-500'}`}>
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                 {group.threads.length} questions
               </p>
             </button>
           ))}
         </section>
       )}
+<<<<<<< HEAD
+=======
+
+      {mode === 'official' && (
+        <TrendingSection
+          threads={trending}
+          loading={trendingLoading}
+          onSelect={(thread) => {
+            setSelectedThreadId(thread._id);
+            window.location.hash = thread.faqNumber ? `#faq-${thread.faqNumber}` : `#thread-${thread._id}`;
+          }}
+        />
+      )}
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 
       <TrendingSection
         threads={trending}
@@ -536,7 +577,11 @@ const FAQFeed = () => {
                   title={smartSearch ? 'Disable smart search' : 'Enable smart search with paraphrasing'}
                   className={`absolute right-2 top-1.5 px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 transition-colors ${
                     smartSearch
+<<<<<<< HEAD
                       ? 'soft-primary'
+=======
+                      ? 'bg-brand-500 text-white'
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
                       : 'bg-slate-100 dark:bg-brand-800 text-slate-500 dark:text-slate-400'
                   }`}
                 >

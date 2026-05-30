@@ -124,7 +124,7 @@ const Login = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="e.g. sanjay_kumar"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-brand-955 border border-slate-200 dark:border-brand-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500/50 focus:border-brand-500 placeholder-slate-400 dark:placeholder-slate-600 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-brand-950 border border-slate-200 dark:border-brand-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
                 />
               </div>
             </div>
@@ -142,7 +142,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="e.g. sanjay@iitr.ac.in"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-brand-955 border border-slate-200 dark:border-brand-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500/50 focus:border-brand-500 placeholder-slate-400 dark:placeholder-slate-600 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-brand-950 border border-slate-200 dark:border-brand-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
               />
             </div>
           </div>
@@ -170,7 +170,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-brand-955 border border-slate-200 dark:border-brand-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500/50 focus:border-brand-500 placeholder-slate-400 dark:placeholder-slate-600 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-brand-950 border border-slate-200 dark:border-brand-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
               />
             </div>
           </div>
@@ -237,7 +237,7 @@ const Login = () => {
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
                   placeholder="name@iitr.ac.in"
-                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-brand-950 border border-slate-200 dark:border-brand-800 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder-slate-400 dark:placeholder-slate-600 transition-all"
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-brand-950 border border-slate-200 dark:border-brand-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
                 />
                 <button
                   type="submit"

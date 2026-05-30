@@ -16,12 +16,25 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
 
   if (!user) return null;
 
+<<<<<<< HEAD
   const titles = {
     feed: ['FAQ Feed', 'Resolve and discover platform questions'],
     dashboard: [user.role === 'admin' ? 'Admin Command Center' : 'My Dashboard', 'Daily FAQ operations and moderation'],
     admin: ['Admin Command Center', 'Daily FAQ operations and moderation'],
     analytics: ['Analytics', 'Measure engagement, quality, and response flow'],
     profile: ['Profile', 'Account, trust score, and contribution profile']
+=======
+  const getTabTitle = () => {
+    switch (activeTab) {
+      case 'feed': return 'FAQ & Support';
+      case 'dashboard': return 'My Dashboard';
+      case 'leaderboard': return 'Leaderboard';
+      case 'profile': return 'My Profile';
+      case 'admin': return 'Admin Terminal';
+      case 'analytics': return 'Analytics & Insights';
+      default: return 'IIT Ropar Support';
+    }
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
   };
 
   const [title, subtitle] = titles[activeTab] || ['FAQ Platform', 'Knowledge operations workspace'];

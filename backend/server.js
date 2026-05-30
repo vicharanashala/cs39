@@ -4,12 +4,14 @@ const backendEnvPath = path.join(__dirname, '.env');
 require('dotenv').config({
   path: fs.existsSync(backendEnvPath) ? backendEnvPath : path.join(__dirname, '../.env')
 });
+
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 
+const cfg = require('./config');        // ← All constants in one place
 const connectDB = require('./config/db');
 const createRateLimiter = require('./middleware/rateLimit');
 const { User, FAQThread, Answer, Comment, SPTransaction, Notification } = require('./models/Schemas');
@@ -28,12 +30,18 @@ const trackRoutes = require('./routes/track');
 const app = express();
 const server = http.createServer(app);
 
+<<<<<<< HEAD
 // ── Environment & CORS config (must be before Socket.IO uses them) ───────
 const isProduction = process.env.NODE_ENV === 'production';
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
+=======
+// ── Environment & CORS config ────────────────────────────────────────────────
+const isProduction = cfg.NODE_ENV === 'production';
+const allowedOrigins = cfg.CORS_ORIGINS;
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 
 function isLocalDevelopmentOrigin(origin) {
   if (isProduction || !origin) return false;
@@ -115,8 +123,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '32kb' }));
 app.use('/api', createRateLimiter({
-  windowMs: 60 * 1000,
-  maxRequests: 120,
+  windowMs: cfg.RATE_LIMIT_WINDOW_MS,
+  maxRequests: cfg.RATE_LIMIT_MAX_REQUESTS,
   message: 'Too many API requests. Please slow down.'
 }));
 
@@ -399,14 +407,14 @@ const ensureDemoAccounts = async () => {
 };
 
 // Connect to Database and start server
-const PORT = process.env.PORT || 5000;
-const seedOfficialFAQs = require('./seedFAQs');
+const PORT = cfg.PORT;
+const { seedOfficialFAQs } = require('./seedFAQs');
 function validateConfiguration() {
-  const missing = ['MONGODB_URI', 'JWT_SECRET'].filter(key => !process.env[key]);
+  const missing = ['MONGODB_URI', 'JWT_SECRET'].filter(key => !cfg[key]);
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
-  if (isProduction && process.env.JWT_SECRET.length < 32) {
+  if (isProduction && cfg.JWT_SECRET.length < 32) {
     throw new Error('JWT_SECRET must be at least 32 characters in production');
   }
 }
@@ -437,18 +445,20 @@ async function startServer() {
   // Only seed the real MongoDB database if Mongoose has successfully connected
   let faqSeedEnabled = false;
   if (mongoose.connection && mongoose.connection.readyState === 1) {
-    const demoSeedEnabled = process.env.ENABLE_DEMO_SEED === 'true'
-      || (!isProduction && process.env.ENABLE_DEMO_SEED !== 'false');
-    faqSeedEnabled = process.env.ENABLE_FAQ_SEED === 'true'
-      || (!isProduction && process.env.ENABLE_FAQ_SEED !== 'false');
-
-    if (demoSeedEnabled) {
+    if (cfg.ENABLE_DEMO_SEED) {
       await ensureDemoAccounts();
+    }
+    if (faqSeedEnabled) {
+      seedOfficialFAQs();
     }
   }
 
   server.listen(PORT, () => {
+<<<<<<< HEAD
     console.log(`[Server] Express + Socket.IO backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+=======
+    console.log(`[Server] Express + Socket.IO backend running on port ${PORT} (${cfg.NODE_ENV})`);
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
     if (faqSeedEnabled) {
       seedOfficialFAQs();
     }

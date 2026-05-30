@@ -60,6 +60,7 @@ const AppContent = () => {
   };
 
   return (
+<<<<<<< HEAD
     <div className="soft-page-bg flex min-h-screen overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(105,96,82,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(105,96,82,0.055)_1px,transparent_1px)] bg-[size:42px_42px] opacity-50 dark:bg-[linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] dark:opacity-30" />
 
@@ -69,10 +70,16 @@ const AppContent = () => {
           onToggle={() => setIsSidebarCollapsed((current) => !current)}
         />
       </div>
+=======
+    <div className="flex min-h-screen bg-pink-50 dark:bg-brand-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      
+      {/* 1. Desktop Sidebar Removed per request */}
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 
       {/* 2. Mobile Menu Drawer Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden bg-black/60 backdrop-blur-sm">
+<<<<<<< HEAD
           <Sidebar mobile onNavigate={() => setIsMobileMenuOpen(false)} />
           <button
             onClick={() => setIsMobileMenuOpen(false)}
@@ -81,6 +88,78 @@ const AppContent = () => {
           >
             <X className="h-6 w-6" />
           </button>
+=======
+          <div className="w-64 bg-slate-900 h-full p-6 flex flex-col justify-between border-r border-slate-800 text-slate-350 animate-slide-in">
+            <div>
+              <div className="flex items-center justify-between pb-6 border-b border-slate-850">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xl">🎓</span>
+                  <span className="font-extrabold text-white text-sm tracking-wide">IIT ROPAR</span>
+                </div>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Navigation Links */}
+              <nav className="mt-8 space-y-2">
+                <button
+                  onClick={() => handleMobileNavClick('feed')}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
+                    activeTab === 'feed' && !selectedThreadId ? 'bg-brand-500/10 text-brand-400' : ''
+                  }`}
+                >
+                  FAQ & Community
+                </button>
+                <button
+                  onClick={() => handleMobileNavClick('dashboard')}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
+                    activeTab === 'dashboard' && !selectedThreadId ? 'bg-brand-500/10 text-brand-400' : ''
+                  }`}
+                >
+                  My Dashboard
+                </button>
+
+                <button
+                  onClick={() => handleMobileNavClick('profile')}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
+                    activeTab === 'profile' ? 'bg-brand-500/10 text-brand-400' : ''
+                  }`}
+                >
+                  Student Profile
+                </button>
+                {user.role === 'admin' && (
+                  <>
+                    <button
+                      onClick={() => handleMobileNavClick('admin')}
+                      className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
+                        activeTab === 'admin' ? 'bg-brand-500/10 text-brand-400' : ''
+                      }`}
+                    >
+                      Admin Panel
+                    </button>
+                    <button
+                      onClick={() => handleMobileNavClick('analytics')}
+                      className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold ${
+                        activeTab === 'analytics' ? 'bg-brand-500/10 text-brand-400' : ''
+                      }`}
+                    >
+                      Analytics
+                    </button>
+                  </>
+                )}
+              </nav>
+            </div>
+
+            {/* Logout */}
+            <button 
+              onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+              className="w-full flex items-center space-x-3 px-4 py-3 bg-slate-950/40 hover:bg-rose-500/10 text-slate-400 hover:text-rose-450 rounded-xl text-xs font-bold transition-all"
+            >
+              <span>Log Out</span>
+            </button>
+          </div>
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
         </div>
       )}
 

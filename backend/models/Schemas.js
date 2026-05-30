@@ -48,11 +48,15 @@ const FAQThreadSchema = new Schema({
   isMerged: { type: Boolean, default: false },
   mergedInto: { type: Schema.Types.ObjectId, ref: 'FAQThread', default: null },
   
+<<<<<<< HEAD
   status: { type: String, enum: ['pending_review', 'active', 'flagged', 'rejected', 'merged', 'spam'], default: 'pending_review' },
   submittedForReviewAt: { type: Date, default: Date.now },
   reviewedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   reviewedAt: { type: Date, default: null },
   rejectionReason: { type: String, default: null },
+=======
+  status: { type: String, enum: ['active', 'flagged', 'merged', 'spam'], default: 'active' },
+>>>>>>> ebd79f7b49a7a8f4c0860e4c38e20347dce9e852
 
   // Auto-Analysis Metadata
   priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
