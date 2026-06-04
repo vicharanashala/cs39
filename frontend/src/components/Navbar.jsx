@@ -19,7 +19,7 @@ import {
 const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
   const { user, theme, activeTab, toggleTheme } = useApp();
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Notification states
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -69,7 +69,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
   if (!user) return null;
 
   const titles = {
-    feed: ['FAQ Feed', 'Resolve and discover platform questions'],
+    feed: ['FAQ Feed'],
     dashboard: [user.role === 'admin' ? 'Admin Command Center' : 'My Dashboard', 'Daily FAQ operations and moderation'],
     admin: ['Admin Command Center', 'Daily FAQ operations and moderation'],
     attendance: ['Attendance Support', 'Session access requests and issue reporting'],
@@ -122,21 +122,19 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
   };
 
   return (
-    <header className={`sticky top-0 z-30 border-b px-4 py-3.5 backdrop-blur-2xl sm:px-6 transition-all duration-300 ${
-      theme === 'dark'
+    <header className={`sticky top-0 z-30 border-b px-4 py-3.5 backdrop-blur-2xl sm:px-6 transition-all duration-300 ${theme === 'dark'
         ? 'border-white/5 bg-[#050608]/75 text-white'
         : 'border-slate-100 bg-white/75 text-slate-800 shadow-sm'
-    }`}>
+      }`}>
       <div className="flex items-center justify-between gap-4">
         {/* Brand/Tab Section */}
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onMobileMenuToggle}
-            className={`rounded-xl p-2 border transition md:hidden ${
-              theme === 'dark' 
-                ? 'border-white/5 text-slate-400 hover:bg-white/5 hover:text-white' 
+            className={`rounded-xl p-2 border transition md:hidden ${theme === 'dark'
+                ? 'border-white/5 text-slate-400 hover:bg-white/5 hover:text-white'
                 : 'border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-            }`}
+              }`}
             title={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {isMobileMenuOpen ? <X className="h-4.5 w-4.5" /> : <Menu className="h-4.5 w-4.5" />}
@@ -148,18 +146,17 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
         </div>
 
         {/* Live Date & Time Clock Badge */}
-        <div className={`hidden items-center gap-2 px-3.5 py-2 rounded-xl border text-[10px] font-black tracking-wider uppercase md:flex ${
-          theme === 'dark' 
-            ? 'border-white/5 bg-white/[0.01] text-slate-400' 
+        <div className={`hidden items-center gap-2 px-3.5 py-2 rounded-xl border text-[10px] font-black tracking-wider uppercase md:flex ${theme === 'dark'
+            ? 'border-white/5 bg-white/[0.01] text-slate-400'
             : 'border-slate-100 bg-slate-50/50 text-slate-500 shadow-sm'
-        }`}>
+          }`}>
           <Clock className="w-3.5 h-3.5 text-[#E07A15] dark:text-[#FFAE59]" />
           <span>{formattedTime}</span>
         </div>
 
         {/* Global actions */}
         <div className="flex shrink-0 items-center gap-2">
-          
+
           {/* Notifications Dropdown */}
           <div className="relative">
             <button
@@ -167,11 +164,10 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
                 setShowNotifications(!showNotifications);
                 if (!showNotifications) fetchNotifications();
               }}
-              className={`relative rounded-xl border p-2.5 transition ${
-                theme === 'dark'
+              className={`relative rounded-xl border p-2.5 transition ${theme === 'dark'
                   ? 'border-white/5 bg-white/[0.01] text-slate-350 hover:bg-white/5 hover:text-white'
                   : 'border-slate-150 bg-slate-50/50 text-slate-650 hover:bg-slate-100 hover:text-slate-900 shadow-sm'
-              } ${showNotifications ? 'ring-2 ring-indigo-500/30' : ''}`}
+                } ${showNotifications ? 'ring-2 ring-indigo-500/30' : ''}`}
               title="Notifications"
             >
               <Bell className="h-4 w-4" />
@@ -187,12 +183,11 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
             {showNotifications && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-                
-                <div className={`absolute right-0 mt-2.5 z-50 w-80 sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-3xl overflow-hidden transition-all duration-300 origin-top-right transform scale-100 ${
-                  theme === 'dark'
+
+                <div className={`absolute right-0 mt-2.5 z-50 w-80 sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-3xl overflow-hidden transition-all duration-300 origin-top-right transform scale-100 ${theme === 'dark'
                     ? 'border-white/5 bg-[#0b0c10]/95 text-white'
                     : 'border-slate-100 bg-white/95 text-slate-800'
-                }`}>
+                  }`}>
                   <div className="flex items-center justify-between px-4.5 py-3.5 border-b border-slate-100 dark:border-white/5 bg-slate-50/40 dark:bg-white/[0.01]">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-black uppercase tracking-wider">Notifications</span>
@@ -226,22 +221,20 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
                           <div
                             key={notif._id}
                             onClick={() => markAsRead(notif._id)}
-                            className={`flex items-start gap-3 p-4 text-left transition-colors cursor-pointer ${
-                              isRead 
-                                ? 'bg-transparent hover:bg-slate-50/40 dark:hover:bg-white/[0.01]' 
+                            className={`flex items-start gap-3 p-4 text-left transition-colors cursor-pointer ${isRead
+                                ? 'bg-transparent hover:bg-slate-50/40 dark:hover:bg-white/[0.01]'
                                 : 'bg-indigo-500/[0.02] hover:bg-indigo-500/[0.05]'
-                            }`}
+                              }`}
                           >
-                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                              notif.type === 'approval' 
-                                ? 'bg-emerald-500/10 text-emerald-500' 
-                                : notif.type === 'rejection' 
-                                ? 'bg-rose-500/10 text-rose-500' 
-                                : 'bg-amber-500/10 text-amber-500'
-                            }`}>
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${notif.type === 'approval'
+                                ? 'bg-emerald-500/10 text-emerald-500'
+                                : notif.type === 'rejection'
+                                  ? 'bg-rose-500/10 text-rose-500'
+                                  : 'bg-amber-500/10 text-amber-500'
+                              }`}>
                               {notif.type === 'approval' ? <CheckCircle2 className="h-4 w-4" /> : notif.type === 'rejection' ? <X className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}
                             </span>
-                            
+
                             <div className="flex-1 min-w-0 space-y-0.5">
                               <div className="flex items-center justify-between gap-2">
                                 <p className={`text-xs font-bold leading-none ${isRead ? 'text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-white'}`}>
@@ -255,7 +248,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
                                 {notif.message}
                               </p>
                             </div>
-                            
+
                             {!isRead && (
                               <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5 animate-pulse" />
                             )}
@@ -268,15 +261,14 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
               </>
             )}
           </div>
-          
+
           {/* Theme switcher */}
           <button
             onClick={toggleTheme}
-            className={`rounded-xl border p-2.5 transition ${
-              theme === 'dark' 
-                ? 'border-white/5 bg-white/[0.01] text-slate-350 hover:bg-white/5 hover:text-white' 
+            className={`rounded-xl border p-2.5 transition ${theme === 'dark'
+                ? 'border-white/5 bg-white/[0.01] text-slate-350 hover:bg-white/5 hover:text-white'
                 : 'border-slate-150 bg-slate-50/50 text-slate-650 hover:bg-slate-100 hover:text-slate-900 shadow-sm'
-            }`}
+              }`}
             title="Toggle dark/light theme"
           >
             {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-300 animate-pulse" /> : <Moon className="h-4 w-4" />}
@@ -284,9 +276,8 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
 
           {/* User badge */}
           <div
-            className={`flex items-center gap-2 rounded-xl border py-1.5 pl-2 pr-3.5 text-left shadow-sm ${
-              theme === 'dark' ? 'border-white/5 bg-[#0b0c10]' : 'border-slate-150 bg-slate-50/50'
-            }`}
+            className={`flex items-center gap-2 rounded-xl border py-1.5 pl-2 pr-3.5 text-left shadow-sm ${theme === 'dark' ? 'border-white/5 bg-[#0b0c10]' : 'border-slate-150 bg-slate-50/50'
+              }`}
             title="Active profile badge"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-brand-500 to-indigo-500 text-xs font-black uppercase text-white shadow-md">

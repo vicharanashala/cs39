@@ -37,20 +37,20 @@ const Dashboard = () => {
   const [queueDraft, setQueueDraft] = useState({ title: '', body: '', category: 'General Queries' });
   const [queueLoadingId, setQueueLoadingId] = useState(null);
   const [studentStats, setStudentStats] = useState(null);
-  const [error, setError] = useState(false);    
+  const [error, setError] = useState(false);
   // Pending Queue state
   const [pendingQueue, setPendingQueue] = useState([]);
   const [queueLoading, setQueueLoading] = useState(false);
   const [queueSort, setQueueSort] = useState('queueNumber');
   const [processingId, setProcessingId] = useState(null);
-  
+
   // Rejected Questions Log & Rejection Form State
   const [rejectedQuestions, setRejectedQuestions] = useState([]);
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('Duplicate Question');
   const [rejectionPenalty, setRejectionPenalty] = useState('5');
   const [isRejectedModalOpen, setIsRejectedModalOpen] = useState(false);
-  
+
   // Merge state
   const [mergeSource, setMergeSource] = useState('');
   const [mergeTarget, setMergeTarget] = useState('');
@@ -331,11 +331,10 @@ const Dashboard = () => {
   );
 
   const StatCard = ({ label, value, icon: Icon, tone, detail, onClick }) => (
-    <div 
-      onClick={onClick} 
-      className={`soft-panel overflow-hidden p-5 border border-slate-200/50 dark:border-white/5 bg-white/70 dark:bg-[#0b0c10]/40 shadow-md backdrop-blur-3xl card-hover ${
-        onClick ? 'cursor-pointer hover:bg-slate-50/40 dark:hover:bg-white/[0.02] border-amber-500/20' : ''
-      }`}
+    <div
+      onClick={onClick}
+      className={`soft-panel overflow-hidden p-5 border border-slate-200/50 dark:border-white/5 bg-white/70 dark:bg-[#0b0c10]/40 shadow-md backdrop-blur-3xl card-hover ${onClick ? 'cursor-pointer hover:bg-slate-50/40 dark:hover:bg-white/[0.02] border-amber-500/20' : ''
+        }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -358,13 +357,13 @@ const Dashboard = () => {
 
     return (
       <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6 font-sans">
-        
+
         {/* Welcome Section Header */}
         <section className="soft-panel p-6 border border-slate-200/50 dark:border-white/5 bg-white/70 dark:bg-[#0b0c10]/40 shadow-xl backdrop-blur-3xl">
           <p className="soft-accent text-[9px] font-black uppercase tracking-[0.25em]">Contributor Workspace</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">Welcome back, {user.username}</h2>
           <p className="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-450 dark:text-slate-400">
-            Track your open issue tickets, review peer replies, and monitor your SP reputation progressions in IIT Ropar Academics support.
+            Track your open issue tickets, review peer replies, and monitor your SP reputation.
           </p>
         </section>
 
@@ -372,7 +371,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard label="Reputation Score" value={`${user.spPoints} SP`} icon={TrendingUp} tone="from-amber-500 to-[#E07A15]" detail={user.contributionRating || 'Active Portal Intern'} />
           <StatCard label="My Tickets Raised" value={stats.raisedCount} icon={MessageSquare} tone="from-indigo-500 to-violet-500" detail="Questions created on the board" />
-          <StatCard label="Vetted Explanations" value={stats.answersCount} icon={CheckCircle} tone="from-emerald-500 to-teal-500" detail="Vetted peer replies submitted" />
+          <StatCard label="Explanations" value={stats.answersCount} icon={CheckCircle} tone="from-emerald-500 to-teal-500" detail=" peer replies submitted" />
         </div>
 
         {/* Student listings section */}
@@ -380,15 +379,15 @@ const Dashboard = () => {
           {/* Raised issues list */}
           <section className="soft-panel p-5 border border-slate-200/50 dark:border-white/5 bg-white/75 dark:bg-[#0b0c10]/40 shadow-xl backdrop-blur-3xl lg:col-span-2 space-y-4">
             <PanelTitle icon={MessageSquare} title="My Raised Issues" count={raisedThreads.length} />
-            
+
             <div className="divide-y divide-slate-150 dark:divide-white/5 pt-1">
               {raisedThreads.length === 0 ? (
                 <EmptyState text="You have not published any question threads yet." />
               ) : (
                 raisedThreads.map((thread) => (
-                  <button 
-                    key={thread._id} 
-                    onClick={() => setSelectedThreadId(thread._id)} 
+                  <button
+                    key={thread._id}
+                    onClick={() => setSelectedThreadId(thread._id)}
                     className="group flex w-full items-center justify-between gap-4 py-4 text-left hover:bg-slate-50/[0.1] dark:hover:bg-white/[0.003] px-2 rounded-xl transition-colors cursor-pointer"
                   >
                     <div className="min-w-0 flex-1">
@@ -411,8 +410,8 @@ const Dashboard = () => {
 
           {/* Solved Answers summary */}
           <section className="soft-panel p-5 border border-slate-200/50 dark:border-white/5 bg-white/75 dark:bg-[#0b0c10]/40 shadow-xl backdrop-blur-3xl space-y-4">
-            <PanelTitle icon={CheckCircle} title="Vetted Solutions" count={solvedAnswers.length} />
-            
+            <PanelTitle icon={CheckCircle} title="Verified Solutions" count={solvedAnswers.length} />
+
             <div className="space-y-3 pt-1">
               {solvedAnswers.length === 0 ? (
                 <EmptyState text="Vetting evaluation pending approval." />
@@ -441,7 +440,7 @@ const Dashboard = () => {
 
     return (
       <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 font-sans">
-        
+
         {/* Operations Header */}
         <section className="soft-panel p-6 border border-slate-200/50 dark:border-white/5 bg-white/70 dark:bg-[#0b0c10]/40 shadow-xl backdrop-blur-3xl">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -455,7 +454,7 @@ const Dashboard = () => {
                 Review publication review queues, verify student explanations, clear toxicity moderation flags, or merge duplicate FAQs.
               </p>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3 sm:min-w-[320px]">
               <MiniMetric label="Review Queue" value={counters.pendingApprovalCount} />
               <MiniMetric label="Active Flags" value={flaggedTotal} />
@@ -468,12 +467,12 @@ const Dashboard = () => {
           <StatCard label="Registered Interns" value={counters.usersCount} icon={Users} tone="from-indigo-500 to-blue-500" detail="Active platform users" />
           <StatCard label="Discussion Threads" value={counters.threadsCount} icon={MessageSquare} tone="from-violet-500 to-fuchsia-500" detail="Total posted threads" />
           <StatCard label="Verified FAQ Guides" value={counters.verifiedAnswersCount} icon={CheckCircle} tone="from-emerald-500 to-teal-500" detail="Locked vetted answers" />
-          <StatCard 
-            label="Rejected Submissions" 
-            value={counters.rejectedCount || 0} 
-            icon={XCircle} 
-            tone="from-rose-500 to-red-500" 
-            detail="Click to view rejection logs" 
+          <StatCard
+            label="Rejected Submissions"
+            value={counters.rejectedCount || 0}
+            icon={XCircle}
+            tone="from-rose-500 to-red-500"
+            detail="Click to view rejection logs"
             onClick={() => setIsRejectedModalOpen(true)}
           />
         </div>
@@ -481,7 +480,7 @@ const Dashboard = () => {
         {/* Publication queue block */}
         <section className="soft-panel p-5 border border-slate-200/50 dark:border-white/5 bg-white/75 dark:bg-[#0b0c10]/40 shadow-xl backdrop-blur-3xl space-y-4">
           <PanelTitle icon={MessageSquare} title="Publication Review Queue" count={moderationQueue.length} />
-          
+
           <div className="divide-y divide-slate-150 dark:divide-white/5 pt-1">
             {moderationQueue.length === 0 ? (
               <EmptyState text="No pending user submissions indexed in publication queue." />
@@ -496,7 +495,7 @@ const Dashboard = () => {
           {/* Flags queue */}
           <section className="soft-panel p-5 border border-slate-200/50 dark:border-white/5 bg-white/75 dark:bg-[#0b0c10]/40 shadow-xl backdrop-blur-3xl xl:col-span-2 space-y-4">
             <PanelTitle icon={AlertTriangle} title="Toxicity Flag Moderation Queue" count={flaggedTotal} />
-            
+
             <div className="max-h-[360px] divide-y divide-slate-150 dark:divide-white/5 overflow-y-auto pr-1">
               {flaggedTotal === 0 ? (
                 <EmptyState text="All clean. Moderation queues are empty." />
@@ -516,11 +515,11 @@ const Dashboard = () => {
           {/* Merge board */}
           <section className="soft-panel p-5 border border-slate-200/50 dark:border-white/5 bg-white/75 dark:bg-[#0b0c10]/40 shadow-xl backdrop-blur-3xl space-y-4 h-fit">
             <PanelTitle icon={GitMerge} title="Merge Duplicate FAQs" />
-            
+
             <form onSubmit={handleMergeSubmit} className="space-y-4 pt-1">
               <SelectField label="Duplicate Source" value={mergeSource} onChange={setMergeSource} threads={mergeableThreads} placeholder="Select source duplicate thread..." />
               <SelectField label="Main Target FAQ" value={mergeTarget} onChange={setMergeTarget} threads={mergeableThreads} placeholder="Select target main thread..." />
-              
+
               <button
                 type="submit"
                 disabled={mergeLoading || !mergeSource || !mergeTarget}
@@ -618,14 +617,14 @@ const Dashboard = () => {
         {isRejectedModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <div className="nexus-glass relative w-full max-w-5xl rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-[#0b0c10] p-6 shadow-2xl space-y-6 max-h-[85vh] flex flex-col animate-slide-in">
-              <button 
+              <button
                 onClick={() => setIsRejectedModalOpen(false)}
                 className="absolute top-4 right-4 p-2 text-slate-450 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition cursor-pointer"
                 title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
-              
+
               <div className="flex items-center gap-3 pb-3 border-b border-slate-150 dark:border-white/5">
                 <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 text-rose-500">
                   <XCircle className="w-5 h-5" />
@@ -635,7 +634,7 @@ const Dashboard = () => {
                   <p className="text-[10px] text-slate-450 font-bold uppercase mt-0.5">Audit reports for penalty deductions</p>
                 </div>
               </div>
-              
+
               <div className="flex-1 overflow-auto pr-1">
                 {rejectedQuestions.length === 0 ? (
                   <EmptyState text="No rejected submissions recorded." />
@@ -742,7 +741,7 @@ const Dashboard = () => {
                 <XCircle className="w-4 h-4" />
                 <span>SP Penalty Deduction Report Form</span>
               </div>
-              
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="block text-[9px] font-extrabold uppercase text-slate-400 mb-1 tracking-wider">Select Rejection Reason</label>

@@ -2,19 +2,19 @@ const { FAQThread, Answer } = require('../models/Schemas');
 
 // 1. NLP Helpers: Tokenizer, Synonyms, Stopwords
 const STOPWORDS = new Set([
-  'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'arent', 'as', 'at', 
-  'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', 'can', 'cant', 'cannot', 
-  'co', 'could', 'couldnt', 'did', 'didnt', 'do', 'does', 'doesnt', 'doing', 'dont', 'down', 'during', 'each', 
-  'few', 'for', 'from', 'further', 'had', 'hadnt', 'has', 'hasnt', 'have', 'havent', 'having', 'he', 'hed', 
-  'hell', 'hes', 'her', 'here', 'heres', 'hers', 'herself', 'him', 'himself', 'his', 'how', 'hows', 'i', 'id', 
-  'ill', 'im', 'ive', 'if', 'in', 'into', 'is', 'isnt', 'it', 'its', 'itself', 'lets', 'me', 'more', 'most', 
-  'mustnt', 'my', 'myself', 'no', 'nor', 'not', 'of', 'off', 'on', 'once', 'only', 'or', 'other', 'ought', 
-  'our', 'ours', 'ourselves', 'out', 'over', 'own', 'same', 'she', 'shed', 'shell', 'shes', 
-  'should', 'shouldnt', 'so', 'some', 'such', 'than', 'that', 'thats', 'the', 'their', 'theirs', 'them', 
-  'themselves', 'then', 'there', 'theres', 'these', 'they', 'theyd', 'theyll', 'theyre', 'theyve', 'this', 
-  'those', 'through', 'to', 'too', 'under', 'until', 'up', 'very', 'was', 'wasnt', 'we', 'wed', 'well', 
-  'were', 'weve', 'werent', 'what', 'whats', 'when', 'whens', 'where', 'wheres', 'which', 'while', 'who', 
-  'whos', 'whom', 'why', 'whys', 'with', 'wont', 'would', 'wouldnt', 'you', 'youd', 'youll', 'youre', 
+  'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'arent', 'as', 'at',
+  'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', 'can', 'cant', 'cannot',
+  'co', 'could', 'couldnt', 'did', 'didnt', 'do', 'does', 'doesnt', 'doing', 'dont', 'down', 'during', 'each',
+  'few', 'for', 'from', 'further', 'had', 'hadnt', 'has', 'hasnt', 'have', 'havent', 'having', 'he', 'hed',
+  'hell', 'hes', 'her', 'here', 'heres', 'hers', 'herself', 'him', 'himself', 'his', 'how', 'hows', 'i', 'id',
+  'ill', 'im', 'ive', 'if', 'in', 'into', 'is', 'isnt', 'it', 'its', 'itself', 'lets', 'me', 'more', 'most',
+  'mustnt', 'my', 'myself', 'no', 'nor', 'not', 'of', 'off', 'on', 'once', 'only', 'or', 'other', 'ought',
+  'our', 'ours', 'ourselves', 'out', 'over', 'own', 'same', 'she', 'shed', 'shell', 'shes',
+  'should', 'shouldnt', 'so', 'some', 'such', 'than', 'that', 'thats', 'the', 'their', 'theirs', 'them',
+  'themselves', 'then', 'there', 'theres', 'these', 'they', 'theyd', 'theyll', 'theyre', 'theyve', 'this',
+  'those', 'through', 'to', 'too', 'under', 'until', 'up', 'very', 'was', 'wasnt', 'we', 'wed', 'well',
+  'were', 'weve', 'werent', 'what', 'whats', 'when', 'whens', 'where', 'wheres', 'which', 'while', 'who',
+  'whos', 'whom', 'why', 'whys', 'with', 'wont', 'would', 'wouldnt', 'you', 'youd', 'youll', 'youre',
   'youve', 'your', 'yours', 'yourself', 'yourselves'
 ]);
 
@@ -85,7 +85,7 @@ function levenshteinDistance(s1, s2) {
 // Builds a dynamic domain-specific vocabulary list from FAQ threads and synonyms
 function buildVocabulary(threads) {
   const vocab = new Set();
-  
+
   const commonWords = [
     'what', 'when', 'where', 'how', 'who', 'why', 'which', 'is', 'are', 'was', 'were',
     'internship', 'intern', 'vins', 'vise', 'vicharanashala', 'stipend', 'salary', 'pay',
@@ -100,12 +100,12 @@ function buildVocabulary(threads) {
     'partner', 'teammate', 'member', 'appeal', 'reconsider', 'withdrawal', 'withdraw',
     'academics', 'registrar', 'office', 'credits', 'grade', 'evaluation', 'proctoring'
   ];
-  
+
   commonWords.forEach(w => vocab.add(w.toLowerCase()));
-  
+
   Object.keys(SYNONYMS).forEach(k => vocab.add(k.toLowerCase()));
   Object.values(SYNONYMS).flat().forEach(v => vocab.add(v.toLowerCase()));
-  
+
   threads.forEach(thread => {
     const text = `${thread.title} ${thread.category} ${thread.body || ''}`.toLowerCase();
     const words = text.replace(/[^\w\s]/g, '').split(/\s+/);
@@ -115,7 +115,7 @@ function buildVocabulary(threads) {
       }
     });
   });
-  
+
   return vocab;
 }
 
@@ -142,11 +142,11 @@ function correctSpelling(query, vocab) {
     }
 
     let bestMatch = null;
-    let minDistance = 3; 
+    let minDistance = 3;
 
     for (const vocabWord of vocab) {
       if (Math.abs(vocabWord.length - cleanWord.length) >= minDistance) continue;
-      
+
       const dist = levenshteinDistance(cleanWord, vocabWord);
       if (dist < minDistance) {
         minDistance = dist;
@@ -215,7 +215,7 @@ function classifyQueryCategory(query) {
 function computeSemanticScore(queryTokens, queryClean, thread, queryCategory) {
   const threadTitleTokens = tokenize(thread.title);
   const threadCategory = thread.category;
-  
+
   const threadTitleClean = thread.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
   if (queryClean === threadTitleClean) {
     return 1.0;
@@ -223,14 +223,14 @@ function computeSemanticScore(queryTokens, queryClean, thread, queryCategory) {
 
   const qSet = new Set(queryTokens);
   const tSet = new Set(threadTitleTokens);
-  
+
   let intersectionCount = 0;
   qSet.forEach(token => {
     if (tSet.has(token)) {
       intersectionCount++;
     }
   });
-  
+
   let synonymMatches = 0;
   qSet.forEach(qToken => {
     if (!tSet.has(qToken)) {
@@ -251,7 +251,7 @@ function computeSemanticScore(queryTokens, queryClean, thread, queryCategory) {
 
   const unionCount = qSet.size + tSet.size - intersectionCount;
   if (unionCount === 0) return 0;
-  
+
   let score = (intersectionCount + synonymMatches) / unionCount;
 
   // Category matching boost
@@ -265,7 +265,7 @@ function computeSemanticScore(queryTokens, queryClean, thread, queryCategory) {
 
   let phraseBonus = 0;
   for (let i = 0; i < queryWords.length - 1; i++) {
-    const bigram = `${queryWords[i]} ${queryWords[i+1]}`;
+    const bigram = `${queryWords[i]} ${queryWords[i + 1]}`;
     if (titleClean.includes(bigram)) {
       phraseBonus += 0.1;
     }
@@ -296,15 +296,15 @@ async function checkSemanticSimilarity(newTitle, category = null) {
       query.category = category;
     }
     const threads = await FAQThread.find(query);
-    
+
     // Spelling correction and category detection for comparison
     const vocab = buildVocabulary(threads);
     const { correctedQuery } = correctSpelling(newTitle, vocab);
-    
+
     const queryTokens = tokenize(correctedQuery);
     const queryClean = correctedQuery.toLowerCase().replace(/[^\w\s]/g, '').trim();
     const queryCategory = category || classifyQueryCategory(correctedQuery);
-    
+
     if (queryTokens.length === 0) return [];
 
     const suggestions = threads.map(thread => {
@@ -331,9 +331,19 @@ async function checkSemanticSimilarity(newTitle, category = null) {
  */
 function scoreContentModeration(text, title = '') {
   const combinedText = `${title} ${text}`.toLowerCase();
-  
+
   // Toxicity detection
-  const toxicWords = ['spammy', 'idiot', 'stupid', 'bastard', 'cheat', 'fuck', 'shit', 'scam', 'fraud', 'useless', 'garbage', 'crap', 'wtf', 'moron'];
+  const toxicWords = [
+
+    'spammy', 'idiot', 'stupid', 'bastard', 'cheat', 'fuck', 'shit', 'scam', 'fraud', 'useless', 'garbage', 'crap', 'wtf', 'moron',
+
+    'mid', 'cringe', 'simp', 'incel', 'cope', 'baap', 'chup', 'seethe', 'mald', 'bozo', 'ratio', 'take an l', 'L', 'trash', 'salty', 'sus', 'delulu', 'npc', 'brainrot', 'pick-me', 'clout chaser', 'tryhard', 'triggered', 'snowflake', 'foid', 'chad', 'beta',
+
+    'troll', 'hater', 'dox', 'doxxing', 'fake news', 'gaslight', 'gatekeep', 'spill the tea', 'drama', 'exposed',
+
+    'clickbait', 'shit', 'hell', 'bc', 'mc', 'bkl', 'f4f', 'shill', 'bot', 'giveaway', 'dm me', 'sugar daddy', 'crypto pump'
+  ];
+
   const tokens = combinedText.replace(/[^\w\s]/g, '').split(/\s+/);
   let toxicCount = 0;
   const toxicWordsFound = [];
@@ -343,19 +353,19 @@ function scoreContentModeration(text, title = '') {
       toxicWordsFound.push(word);
     }
   });
-  
+
   // CAPS LOCK filter increases toxicity slightly (represents shouting)
   const isCaps = text.length > 10 && text === text.toUpperCase();
   const toxicityScore = Math.min(1.0, (toxicCount * 0.4) + (isCaps ? 0.2 : 0));
-  
+
   // Spam probability heuristics
   const repetitiveText = text.length > 20 && /(.)\1{4,}/.test(combinedText); // e.g. "aaaaa"
   const excessiveLinks = (combinedText.match(/https?:\/\//g) || []).length > 2;
   const wordCount = text.split(/\s+/).length;
   const isTooShort = wordCount < 3;
-  const spamProbability = Math.min(1.0, 
-    (repetitiveText ? 0.6 : 0) + 
-    (excessiveLinks ? 0.3 : 0) + 
+  const spamProbability = Math.min(1.0,
+    (repetitiveText ? 0.6 : 0) +
+    (excessiveLinks ? 0.3 : 0) +
     (isTooShort ? 0.2 : 0)
   );
 
@@ -363,12 +373,12 @@ function scoreContentModeration(text, title = '') {
   const hasCode = text.includes('`') || text.includes('code');
   const hasBullets = text.includes('-') || text.includes('*') || text.includes('\n');
   const wordLengthBonus = Math.min(0.4, wordCount / 100);
-  const qualityScore = Math.min(1.0, 
-    0.2 + 
-    wordLengthBonus + 
-    (hasCode ? 0.2 : 0) + 
-    (hasBullets ? 0.2 : 0) - 
-    (toxicityScore * 0.4) - 
+  const qualityScore = Math.min(1.0,
+    0.2 +
+    wordLengthBonus +
+    (hasCode ? 0.2 : 0) +
+    (hasBullets ? 0.2 : 0) -
+    (toxicityScore * 0.4) -
     (spamProbability * 0.4)
   );
 
@@ -424,7 +434,7 @@ async function retrieveRAGResponse(userQuery) {
     // Build vocab from all threads for spell correction
     const vocab = buildVocabulary(allThreads);
     const { correctedQuery, corrections } = correctSpelling(userQuery, vocab);
-    
+
     const queryTokens = tokenize(correctedQuery);
     if (queryTokens.length === 0) {
       return {
@@ -434,10 +444,10 @@ async function retrieveRAGResponse(userQuery) {
         suggestThread: true
       };
     }
-    
+
     const queryClean = correctedQuery.toLowerCase().replace(/[^\w\s]/g, '').trim();
     const queryCategory = classifyQueryCategory(correctedQuery);
-    
+
     // PASS 1: Search official FAQs first (authoritative, should be consulted first)
     const officialMatches = officialThreads
       .map(thread => ({ thread, score: computeSemanticScore(queryTokens, queryClean, thread, queryCategory) }))

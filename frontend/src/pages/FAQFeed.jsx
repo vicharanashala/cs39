@@ -5,18 +5,17 @@ import api from '../utils/api';
 import Config from '../config';
 
 const TrendingSection = ({ threads, loading, onSelect }) => (
-  <section className="overflow-hidden border border-white/50 bg-white/40 dark:border-white/5 dark:bg-[#0b0c10]/45 shadow-[0_8px_30px_rgb(0,0,0,0.03)] backdrop-blur-md rounded-3xl">
-    <div className="flex items-center justify-between gap-3 border-b border-slate-200/30 dark:border-white/5 px-5 py-4">
+  <section className="overflow-hidden border border-amber-100/80 bg-white dark:border-white/5 dark:bg-[#0b0c10]/45 shadow-[0_2px_12px_rgba(224,122,21,0.06)] rounded-2xl">
+    <div className="flex items-center justify-between gap-3 border-b border-amber-100/60 dark:border-white/5 px-5 py-4">
       <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/60 bg-white/50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-100 bg-amber-50/60 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
           <Flame className="h-4 w-4 text-orange-500" />
         </span>
         <div>
-          <h2 className="text-xs font-black uppercase tracking-[0.16em] text-slate-805 dark:text-slate-100">Trending FAQs</h2>
-          <p className="text-[10px] font-bold text-slate-400">Ranked by views, helpful answers, searches, and freshness</p>
+          <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[#B45309] dark:text-slate-100">Trending FAQs</h2>
         </div>
       </div>
-      <span className="hidden rounded-lg border border-white/60 bg-white/50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 sm:inline-flex shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+      <span className="hidden rounded-lg border border-amber-200/80 bg-amber-50/70 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 sm:inline-flex">
         Live
       </span>
     </div>
@@ -38,42 +37,26 @@ const TrendingSection = ({ threads, loading, onSelect }) => (
             New: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300'
           }[thread.trend] || 'border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300';
           return (
-          <button
-            key={thread._id}
-            onClick={() => onSelect(thread)}
-            className="group relative w-72 flex-shrink-0 overflow-hidden rounded-2xl border border-white/50 bg-white/30 p-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.02)] backdrop-blur-sm transition-all duration-300 hover:border-indigo-500/25 hover:bg-white/60 hover:shadow-[0_12px_24px_rgba(99,102,241,0.04)] dark:border-white/5 dark:bg-white/[0.035] dark:hover:border-indigo-500/20 dark:hover:bg-white/[0.06] card-hover cursor-pointer"
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black ${
-                index === 0 ? 'bg-indigo-500/10 text-indigo-650 border border-indigo-500/20 dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'
-              }`}>
-                {index + 1}
-              </span>
-              <span className="rounded-lg border border-white/60 bg-white/45 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-505 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
-                {thread.category}
-              </span>
-            </div>
-            <p className="line-clamp-2 text-xs font-black leading-snug text-slate-700 transition group-hover:text-slate-950 dark:text-slate-100 dark:group-hover:text-white">
-              {thread.title}
-            </p>
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <span className={`rounded-lg border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${trendStyle}`}>
-                {thread.trend || 'Rising'}
-              </span>
-              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">{Math.round(thread.score || 0)} score</span>
-            </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100/60 dark:bg-white/10">
-              <div
-                className="h-full rounded-full bg-indigo-500/70 transition-all duration-700 dark:bg-slate-200"
-                style={{ width: `${Math.min(100, Math.max(8, thread.score || 0))}%` }}
-              />
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[8px] font-black uppercase tracking-wider text-slate-400">
-              <span title="Recent views">{thread.metrics?.recentViews || 0} views</span>
-              <span title="Helpful answer marks">{thread.metrics?.helpfulVotes || 0} helpful</span>
-              <span title="Search clicks">{thread.metrics?.searchFrequency || 0} search</span>
-            </div>
-          </button>
+            <button
+              key={thread._id}
+              onClick={() => onSelect(thread)}
+              className="group relative w-72 flex-shrink-0 overflow-hidden rounded-2xl border border-amber-200/60 bg-[#ffe6ff] p-4 text-left shadow-[0_1px_4px_rgba(224,122,21,0.06)] transition-all duration-300 hover:border-amber-300 hover:shadow-[0_8px_28px_rgba(224,122,21,0.18)] hover:-translate-y-0.5 dark:border-white/5 dark:bg-white/[0.035] dark:hover:border-indigo-500/20 dark:hover:bg-white/[0.06] cursor-pointer"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black ${index === 0 ? 'bg-[#E07A15]/10 text-[#E07A15] border border-[#E07A15]/25 dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 text-slate-500 border border-slate-200/60 dark:bg-white/10 dark:text-slate-300'
+                  }`}>
+                  {index + 1}
+                </span>
+                <span className="rounded-lg border border-amber-200/60 bg-white/70 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                  {thread.category}
+                </span>
+              </div>
+              <p className="line-clamp-2 text-xs font-black leading-snug text-slate-800 transition group-hover:text-slate-950 dark:text-slate-100 dark:group-hover:text-white">
+                {thread.title}
+              </p>
+
+
+            </button>
           );
         })
       )}
@@ -347,11 +330,11 @@ const FAQFeed = () => {
           query: search.trim(),
           resultsCount: response.data.length,
           source: 'faq_feed'
-        }).catch(() => {});
+        }).catch(() => { });
         api.post('/admin/analytics/log-activity', {
           action: 'search',
           metadata: { query: search.trim(), resultsCount: response.data.length }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (error) {
       console.error('Fetch threads error:', error.message);
@@ -413,18 +396,18 @@ const FAQFeed = () => {
   const activeGroup = groupedThreads.find(group => group.id === selectedGroup) || groupedThreads[0];
   const visibleThreads = isSavedMode
     ? savedThreads.filter(thread => {
-        const query = search.toLowerCase().trim();
-        return (
-          !query ||
-          thread.title.toLowerCase().includes(query) ||
-          (thread.body || '').toLowerCase().includes(query) ||
-          (thread.answerText || '').toLowerCase().includes(query)
-        );
-      })
+      const query = search.toLowerCase().trim();
+      return (
+        !query ||
+        thread.title.toLowerCase().includes(query) ||
+        (thread.body || '').toLowerCase().includes(query) ||
+        (thread.answerText || '').toLowerCase().includes(query)
+      );
+    })
     : activeGroup.threads.filter(thread => {
-        const query = search.toLowerCase().trim();
-        return !query || thread.title.toLowerCase().includes(query) || (thread.body || '').toLowerCase().includes(query);
-      });
+      const query = search.toLowerCase().trim();
+      return !query || thread.title.toLowerCase().includes(query) || (thread.body || '').toLowerCase().includes(query);
+    });
 
   const toggleAnswer = async (threadId) => {
     if (expandedThreadId === threadId) {
@@ -441,7 +424,7 @@ const FAQFeed = () => {
         api.post('/admin/analytics/log-activity', {
           action: 'view_thread',
           metadata: { threadId }
-        }).catch(() => {});
+        }).catch(() => { });
         // If search query exists, also log which thread was clicked from results
         if (search.trim()) {
           api.post('/admin/analytics/log-search', {
@@ -449,7 +432,7 @@ const FAQFeed = () => {
             resultsCount: 0,
             clickedThreadId: threadId,
             source: 'faq_feed'
-          }).catch(() => {});
+          }).catch(() => { });
         }
       } catch (error) {
         showAlert('Unable to load this answer.', 'error');
@@ -490,7 +473,7 @@ const FAQFeed = () => {
 
   return (
     <div className="soft-page max-w-5xl mx-auto px-5 py-7 space-y-6 font-sans">
-      
+
       {/* ── HEADER OVERHAUL ── */}
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-slate-200/50 dark:border-white/5 pb-5">
         <div>
@@ -498,7 +481,7 @@ const FAQFeed = () => {
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1.5 tracking-tight">
             How can we help you?
           </h1>
-          <p className="text-xs text-slate-450 dark:text-slate-400 mt-1">Four primary folders. Verified guidance, automated by IIT Ropar team.</p>
+          <p className="text-[12px]">Resolve and discover platform questions</p>
         </div>
         <button
           onClick={() => setShowAskModal(true)}
@@ -519,11 +502,10 @@ const FAQFeed = () => {
           <button
             key={id}
             onClick={() => setMode(id)}
-            className={`px-4.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              mode === id
-                ? 'soft-primary shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
+            className={`px-4.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${mode === id
+              ? 'soft-primary shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
           >
             {label}
           </button>
@@ -560,11 +542,10 @@ const FAQFeed = () => {
               <button
                 key={group.id}
                 onClick={() => setSelectedGroup(group.id)}
-                className={`p-5 rounded-2xl border text-left transition-all relative cursor-pointer card-hover ${
-                  isSelected
-                    ? 'soft-primary border-transparent'
-                    : 'bg-white/70 dark:bg-[#0b0c10]/40 border-slate-200/50 dark:border-white/5 text-slate-800 dark:text-white'
-                }`}
+                className={`p-5 rounded-2xl border text-left transition-all relative cursor-pointer card-hover ${isSelected
+                  ? 'soft-primary border-transparent'
+                  : 'bg-white/70 dark:bg-[#0b0c10]/40 border-slate-200/50 dark:border-white/5 text-slate-800 dark:text-white'
+                  }`}
               >
                 {/* Visual state active bar */}
                 {isSelected && (
@@ -572,7 +553,7 @@ const FAQFeed = () => {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-white animate-pulse"></span>
                   </span>
                 )}
-                
+
                 <h3 className="text-sm font-extrabold tracking-tight">{group.title}</h3>
                 <p className={`text-[11px] leading-relaxed mt-1.5 ${isSelected ? 'text-white/80' : 'text-slate-450 dark:text-slate-400'}`}>
                   {group.description}
@@ -588,7 +569,7 @@ const FAQFeed = () => {
 
       {/* ── MAIN CONTENT WORKSPACE ── */}
       <section className="soft-panel overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white/75 dark:bg-[#0b0c10]/30 shadow-xl backdrop-blur-3xl">
-        
+
         {/* Workspace Toolbar */}
         <div className="p-5 border-b border-slate-150 dark:border-white/5 flex flex-col md:flex-row gap-4 md:items-center md:justify-between bg-slate-50/20 dark:bg-white/[0.01]">
           <div>
@@ -596,28 +577,27 @@ const FAQFeed = () => {
               {isSavedMode ? 'Bookmarked Answers' : activeGroup.title}
             </h2>
             <p className="text-[11px] font-bold text-slate-400">
-              {isSavedMode ? 'Your curated locally pinned FAQs' : mode === 'official' ? 'Staff vetted expert guidance solutions' : 'Intern peer discussions & questions'}
+              {isSavedMode ? 'Your curated locally pinned FAQs' : mode === 'official' ? 'Expert guidance solutions' : 'Intern peer discussions & questions'}
             </p>
           </div>
-          
+
           <div className="flex flex-col gap-2 w-full md:w-80 shrink-0">
             <div className="relative">
               <Search className="absolute w-3.5 h-3.5 text-slate-400 left-3.5 top-3" />
               <input
                 value={search}
                 onChange={event => setSearch(event.target.value)}
-                placeholder={isSavedMode ? "Filter bookmarked cards..." : "Search this academic directory..."}
+                placeholder={isSavedMode ? "Filter bookmarked cards..." : "Search FAQ..."}
                 className="w-full rounded-xl bg-slate-50 dark:bg-[#07080b]/60 pl-10 pr-20 py-2.5 text-xs outline-none text-slate-800 dark:text-slate-100"
               />
               {!isSavedMode && (
                 <button
                   onClick={() => setSmartSearch(s => !s)}
                   title={smartSearch ? 'Disable semantic checker' : 'Enable local similarity duplicate check'}
-                  className={`absolute right-2 top-2 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
-                    smartSearch
-                      ? 'soft-primary shadow-sm'
-                      : 'bg-slate-200/60 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
-                  }`}
+                  className={`absolute right-2 top-2 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${smartSearch
+                    ? 'soft-primary shadow-sm'
+                    : 'bg-slate-200/60 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
+                    }`}
                 >
                   <Wand2 className="w-3 h-3" />
                   Smart
@@ -683,7 +663,7 @@ const FAQFeed = () => {
                           Saved
                         </span>
                       </div>
-                      
+
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
@@ -692,7 +672,7 @@ const FAQFeed = () => {
                             api.post('/admin/analytics/log-activity', {
                               action: 'bookmark',
                               metadata: { threadId: thread._id, saved }
-                            }).catch(() => {});
+                            }).catch(() => { });
                           }
                         }}
                         className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 text-amber-400 hover:bg-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer shadow-sm"
@@ -740,7 +720,7 @@ const FAQFeed = () => {
         ) : loading ? (
           <div className="py-20 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-[#E07A15]" />
-              <span>Parsing repository questions...</span>
+            <span>Parsing repository questions...</span>
           </div>
         ) : visibleThreads.length === 0 ? (
           <div className="py-20 text-center text-xs text-slate-450 dark:text-slate-400">
@@ -775,7 +755,7 @@ const FAQFeed = () => {
                           </span>
                         )}
                       </p>
-                      
+
                       {/* Dynamic Heuristic tags row */}
                       {thread.tags?.length > 0 && (
                         <div className="flex flex-wrap gap-1 w-full mt-1.5">
@@ -792,7 +772,7 @@ const FAQFeed = () => {
                         </div>
                       )}
                     </button>
-                    
+
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={async (e) => {
@@ -802,7 +782,7 @@ const FAQFeed = () => {
                             api.post('/admin/analytics/log-activity', {
                               action: 'bookmark',
                               metadata: { threadId: thread._id, saved }
-                            }).catch(() => {});
+                            }).catch(() => { });
                           }
                         }}
                         className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer shadow-sm"
@@ -812,7 +792,7 @@ const FAQFeed = () => {
                           className={`w-3.5 h-3.5 transition-transform hover:scale-110 ${isBookmarked ? 'fill-amber-400 text-amber-400' : 'text-slate-350 dark:text-slate-550'}`}
                         />
                       </button>
-                      <button 
+                      <button
                         onClick={() => toggleAnswer(thread._id)}
                         className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer shadow-sm text-slate-405"
                       >
@@ -852,7 +832,7 @@ const FAQFeed = () => {
                       ) : (
                         <p className="text-xs text-slate-450 dark:text-slate-500 font-bold italic">Verification review in progress. No official reply available yet.</p>
                       )}
-                      
+
                       <button
                         onClick={() => setSelectedThreadId(thread._id)}
                         className="text-[11px] text-[#E07A15] dark:text-[#FFAE59] font-black uppercase tracking-wider hover:underline flex items-center gap-1 cursor-pointer"
@@ -869,10 +849,6 @@ const FAQFeed = () => {
       </section>
 
       {/* Info card footer */}
-      <div className="flex items-center gap-2.5 text-xs text-slate-400 dark:text-slate-500 font-medium bg-slate-50 dark:bg-white/[0.01] p-4 rounded-2xl border border-slate-150 dark:border-white/5 max-w-fit">
-        <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
-        <span>RAG Copilot uses this validated directory directly to synthesize custom AI answers for search flows.</span>
-      </div>
 
       {/* ── ASK A QUESTION DIALOG MODAL ── */}
       {showAskModal && (
@@ -883,15 +859,15 @@ const FAQFeed = () => {
                 <MessageCircle className="soft-accent w-5 h-5" />
                 <h2 className="text-sm font-extrabold dark:text-white">Ask the Student Community</h2>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowAskModal(false)}
                 className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            
+
             <div className="space-y-1">
               <label className="block text-[9px] font-extrabold uppercase text-slate-450 tracking-wider">Your Query Title</label>
               <input
@@ -949,7 +925,7 @@ const FAQFeed = () => {
                 </div>
               </div>
             )}
-            
+
             <div className="space-y-1">
               <label className="block text-[9px] font-extrabold uppercase text-slate-450 tracking-wider">Select Topic Folder</label>
               <select
@@ -960,18 +936,18 @@ const FAQFeed = () => {
                 {FAQ_GROUPS.map(group => <option key={group.id} value={group.id}>{group.title}</option>)}
               </select>
             </div>
-            
+
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
-              <button 
-                type="button" 
-                onClick={() => setShowAskModal(false)} 
+              <button
+                type="button"
+                onClick={() => setShowAskModal(false)}
                 className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
               >
                 Cancel
               </button>
-              <button 
-                disabled={creationLoading} 
-                type="submit" 
+              <button
+                disabled={creationLoading}
+                type="submit"
                 className="soft-primary px-5 py-2.5 rounded-xl text-xs font-black shadow disabled:opacity-50 cursor-pointer"
               >
                 {creationLoading ? 'Publishing...' : 'Submit Question'}

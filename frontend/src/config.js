@@ -12,9 +12,12 @@ const Config = {
   // Vite dev proxy target (only used when API_URL is empty)
   API_PROXY_TARGET: import.meta.env.VITE_API_PROXY_TARGET || 'http://localhost:5000',
 
+  // Socket.IO server origin (defaults to VITE_API_PROXY_TARGET if not separately set)
+  SOCKET_URL: import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_PROXY_TARGET || 'http://localhost:5000',
+
   // ── Ports ────────────────────────────────────────────────────────────────────
-  BACKEND_PORT: '5000',
-  FRONTEND_PORT: '5173',
+  BACKEND_PORT: import.meta.env.VITE_BACKEND_PORT || '5000',
+  FRONTEND_PORT: import.meta.env.VITE_FRONTEND_PORT || '5173',
 
   // ── AI / Moderation ──────────────────────────────────────────────────────────
   // Threads with similarity score >= this threshold are blocked as duplicates

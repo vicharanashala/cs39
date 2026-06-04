@@ -1,6 +1,8 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Socket server origin — set VITE_SOCKET_URL in frontend/.env (or root .env).
+// Falls back to VITE_API_PROXY_TARGET so a single env var covers both REST and Socket.IO.
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_PROXY_TARGET || 'http://localhost:5000';
 
 let socket = null;
 

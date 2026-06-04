@@ -109,7 +109,7 @@ const SupportCard = ({ label, value, hint, icon: Icon, tone = 'from-slate-700 to
 export const UnableToAttendSession = () => {
   const { user, showAlert } = useApp();
   const isAdmin = user?.role === 'admin';
-  
+
   // Tab view state
   const [activeViewTab, setActiveViewTab] = useState(isAdmin ? 'queue' : 'report');
 
@@ -131,7 +131,7 @@ export const UnableToAttendSession = () => {
   const [supportFilters, setSupportFilters] = useState({ q: '', userName: '', email: '', issueType: 'all', from: '', to: '' });
   const [expandedRequestId, setExpandedRequestId] = useState(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 1 });
-  
+
   // Drafts for edits & replies
   const [statusDrafts, setStatusDrafts] = useState({});
   const [replyDrafts, setReplyDrafts] = useState({});
@@ -561,17 +561,13 @@ export const UnableToAttendSession = () => {
 
   return (
     <section className="soft-panel space-y-6 border border-slate-200/50 bg-white/75 p-6 shadow-xl backdrop-blur-3xl dark:border-white/5 dark:bg-[#0b0c10]/45 rounded-3xl">
-      
+
       {/* 1. Header widget bar */}
       <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 dark:border-white/5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-500">
-            <ShieldCheck className="h-4 w-4" />
-            Unable to Attend Session
-          </div>
-          <h3 className="mt-4 text-xl font-black text-slate-900 dark:text-white">Attendance support and recorded session requests</h3>
+          <h3 className="mt-4 text-xl font-black text-slate-900 dark:text-white">Attendance support</h3>
           <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-455 dark:text-slate-400">
-            Use this flow when internet, device, power, microphone, or camera issues keep you out of class. Start with troubleshooting, then submit a request if you still need help.
+            Start with troubleshooting, then submit a request if you still need help.
           </p>
         </div>
 
@@ -587,22 +583,20 @@ export const UnableToAttendSession = () => {
           <>
             <button
               onClick={() => setActiveViewTab('report')}
-              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                activeViewTab === 'report'
-                  ? 'border-[#E07A15] text-[#E07A15]'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${activeViewTab === 'report'
+                ? 'border-[#E07A15] text-[#E07A15]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
             >
               <Plus className="w-4 h-4" />
               Report New Issue
             </button>
             <button
               onClick={() => setActiveViewTab('tickets')}
-              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                activeViewTab === 'tickets'
-                  ? 'border-[#E07A15] text-[#E07A15]'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${activeViewTab === 'tickets'
+                ? 'border-[#E07A15] text-[#E07A15]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
             >
               <FileText className="w-4 h-4" />
               My Tickets ({requests.length})
@@ -612,33 +606,30 @@ export const UnableToAttendSession = () => {
           <>
             <button
               onClick={() => setActiveViewTab('queue')}
-              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                activeViewTab === 'queue'
-                  ? 'border-[#E07A15] text-[#E07A15]'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${activeViewTab === 'queue'
+                ? 'border-[#E07A15] text-[#E07A15]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
             >
               <ListTodo className="w-4 h-4" />
               Ticket Inbox ({requests.length})
             </button>
             <button
               onClick={() => setActiveViewTab('analytics')}
-              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                activeViewTab === 'analytics'
-                  ? 'border-[#E07A15] text-[#E07A15]'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${activeViewTab === 'analytics'
+                ? 'border-[#E07A15] text-[#E07A15]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
             >
               <BarChart3 className="w-4 h-4" />
               Support Analytics
             </button>
             <button
               onClick={() => setActiveViewTab('guidance')}
-              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
-                activeViewTab === 'guidance'
-                  ? 'border-[#E07A15] text-[#E07A15]'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer ${activeViewTab === 'guidance'
+                ? 'border-[#E07A15] text-[#E07A15]'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
             >
               <Settings className="w-4 h-4" />
               Manage Checklists
@@ -649,11 +640,11 @@ export const UnableToAttendSession = () => {
 
       {/* 3. Tab Contents Layout switcher */}
       <div className="space-y-6">
-        
+
         {/* TAB: Report New Issue (Student Wizard) */}
         {!isAdmin && activeViewTab === 'report' && (
           <div className="space-y-6 animate-fade-in-up">
-            
+
             {/* Step A: Issue Type Selector */}
             <div className="space-y-3">
               <h4 className="text-xs font-black uppercase tracking-widest text-slate-450 flex items-center gap-1.5">
@@ -668,11 +659,10 @@ export const UnableToAttendSession = () => {
                     <button
                       key={option.key}
                       onClick={() => setIssueType(option.key)}
-                      className={`relative rounded-2xl border p-4 text-left transition cursor-pointer card-hover ${
-                        active
-                          ? 'border-[#E07A15] bg-[#FFAE59]/10 shadow-lg ring-2 ring-[#FFAE59]/30'
-                          : 'border-slate-200/60 bg-white/60 hover:border-slate-350 dark:border-white/5 dark:bg-white/[0.03]'
-                      }`}
+                      className={`relative rounded-2xl border p-4 text-left transition cursor-pointer card-hover ${active
+                        ? 'border-[#E07A15] bg-[#FFAE59]/10 shadow-lg ring-2 ring-[#FFAE59]/30'
+                        : 'border-slate-200/60 bg-white/60 hover:border-slate-350 dark:border-white/5 dark:bg-white/[0.03]'
+                        }`}
                     >
                       {active && (
                         <div className="absolute top-3 right-3 flex h-4 w-4 items-center justify-center rounded-full bg-[#E07A15] text-white">
@@ -692,7 +682,7 @@ export const UnableToAttendSession = () => {
 
             {/* Step B: Troubleshooting Steps and Confirmation Checklist */}
             <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr] items-start">
-              
+
               <div className="rounded-2xl border border-slate-200/50 bg-white/70 p-5 shadow-sm dark:border-white/5 dark:bg-[#0b0c10]/40 space-y-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-amber-500" />
@@ -726,7 +716,7 @@ export const UnableToAttendSession = () => {
                         <p className="text-xs text-slate-455 italic">No troubleshooting steps are currently configured for this category.</p>
                       )}
                     </div>
-                    
+
                     <label className="flex items-start gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-left dark:border-emerald-500/10 cursor-pointer">
                       <input
                         type="checkbox"
@@ -913,11 +903,10 @@ export const UnableToAttendSession = () => {
                                 </div>
                                 <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                                   {request.followUps.map((item, index) => (
-                                    <div key={`${item.createdAt}-${index}`} className={`rounded-xl border p-3 text-xs ${
-                                      item.senderRole === 'admin'
-                                        ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200'
-                                        : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
-                                    }`}>
+                                    <div key={`${item.createdAt}-${index}`} className={`rounded-xl border p-3 text-xs ${item.senderRole === 'admin'
+                                      ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200'
+                                      : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+                                      }`}>
                                       <div className="flex items-center justify-between gap-2">
                                         <p className="text-[9px] font-black uppercase tracking-wider">{item.senderName || item.senderRole}</p>
                                         <span className="text-[9px] opacity-70">{new Date(item.createdAt).toLocaleString()}</span>
@@ -1037,7 +1026,7 @@ export const UnableToAttendSession = () => {
         {/* TAB: Ticket Inbox (Admin Queue) */}
         {isAdmin && activeViewTab === 'queue' && (
           <div className="space-y-4 animate-fade-in-up">
-            
+
             {/* Filter Panel */}
             <div className="rounded-2xl border border-slate-200/50 bg-white/70 p-4 shadow-sm dark:border-white/5 dark:bg-[#0b0c10]/40 space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1115,16 +1104,16 @@ export const UnableToAttendSession = () => {
                   type="date"
                   value={supportFilters.from}
                   onChange={(event) => setSupportFilters(current => ({ ...current, from: event.target.value }))}
-                  onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
-                  onFocus={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                  onClick={(e) => { try { e.target.showPicker(); } catch (err) { } }}
+                  onFocus={(e) => { try { e.target.showPicker(); } catch (err) { } }}
                   className="rounded-xl border border-slate-200/50 bg-slate-50 px-3 py-2 text-xs outline-none dark:border-white/5 dark:bg-[#07080b]/70 cursor-pointer"
                 />
                 <input
                   type="date"
                   value={supportFilters.to}
                   onChange={(event) => setSupportFilters(current => ({ ...current, to: event.target.value }))}
-                  onClick={(e) => { try { e.target.showPicker(); } catch (err) {} }}
-                  onFocus={(e) => { try { e.target.showPicker(); } catch (err) {} }}
+                  onClick={(e) => { try { e.target.showPicker(); } catch (err) { } }}
+                  onFocus={(e) => { try { e.target.showPicker(); } catch (err) { } }}
                   className="rounded-xl border border-slate-200/50 bg-slate-50 px-3 py-2 text-xs outline-none dark:border-white/5 dark:bg-[#07080b]/70 cursor-pointer"
                 />
               </div>
@@ -1207,11 +1196,10 @@ export const UnableToAttendSession = () => {
                                 </div>
                                 <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                                   {request.followUps.map((item, index) => (
-                                    <div key={`${item.createdAt}-${index}`} className={`rounded-xl border p-3 text-xs ${
-                                      item.senderRole === 'admin'
-                                        ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200'
-                                        : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
-                                    }`}>
+                                    <div key={`${item.createdAt}-${index}`} className={`rounded-xl border p-3 text-xs ${item.senderRole === 'admin'
+                                      ? 'border-indigo-500/20 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200'
+                                      : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+                                      }`}>
                                       <div className="flex items-center justify-between gap-2">
                                         <p className="text-[9px] font-black uppercase tracking-wider">{item.senderName || item.senderRole}</p>
                                         <span className="text-[9px] opacity-70">{new Date(item.createdAt).toLocaleString()}</span>
@@ -1334,7 +1322,7 @@ export const UnableToAttendSession = () => {
                                 />
                               </div>
                             </div>
-                            
+
                             <div className="grid gap-3 md:grid-cols-2">
                               <div>
                                 <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">Request Explanation (Editable)</label>
@@ -1516,7 +1504,7 @@ export const UnableToAttendSession = () => {
                 <SupportCard label="Rejected" value={summary?.byStatus?.Rejected || 0} icon={AlertTriangle} tone="from-rose-500 to-red-500" />
                 <SupportCard label="Total Requests" value={summary?.total || requests.length || 0} icon={FileText} tone="from-violet-500 to-fuchsia-500" />
               </div>
-              
+
               <div className="mt-6">
                 <h5 className="text-[10px] font-black uppercase tracking-wider text-slate-450 mb-3">Telemetry by Issue Category</h5>
                 <div className="grid gap-3 lg:grid-cols-2">
@@ -1567,11 +1555,10 @@ export const UnableToAttendSession = () => {
                     key={opt.key}
                     type="button"
                     onClick={() => setAdminSelectIssue(opt.key)}
-                    className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer ${
-                      adminSelectIssue === opt.key
-                        ? 'bg-[#FFAE59]/15 border border-[#FFAE59]/30 text-[#E07A15]'
-                        : 'border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02] text-slate-500 hover:text-slate-700 dark:hover:text-slate-350'
-                    }`}
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer ${adminSelectIssue === opt.key
+                      ? 'bg-[#FFAE59]/15 border border-[#FFAE59]/30 text-[#E07A15]'
+                      : 'border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02] text-slate-500 hover:text-slate-700 dark:hover:text-slate-350'
+                      }`}
                   >
                     {opt.label}
                   </button>
