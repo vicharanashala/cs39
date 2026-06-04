@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { User } = require('../models/Schemas');
+const { User, UserActivity } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const createRateLimiter = require('../middleware/rateLimit');
 
@@ -91,6 +91,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    // Login activity logging disabled as per request
 
     res.json({
       token,

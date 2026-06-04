@@ -35,7 +35,7 @@ router.get('/:userId/sp-history', authMiddleware, async (req, res) => {
 router.get('/:userId', authMiddleware, async (req, res) => {
   try {
     const targetUserId = req.params.userId;
-    const user = await User.findById(targetUserId).select('-password');
+    const user = await User.findById(targetUserId).select('username email role spPoints level trustScore contributionRating helpfulAnswersCount verifiedAnswersCount faqContributionsCount penaltiesCount badges createdAt').lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // 1. Raised questions (FAQ threads authored by user)
@@ -43,35 +43,62 @@ router.get('/:userId', authMiddleware, async (req, res) => {
     // Determine which thread statuses are visible to the requester.
     // Students should not see 'rejected' threads; admins can view all non-spam threads.
     const visibleStatus = mayViewPrivate ? { $nin: ['spam', 'rejected'] } : 'active';
-    const rawRaisedThreads = await FAQThread.find({ author: targetUserId, status: visibleStatus });
-    const raisedThreads = await Promise.all(rawRaisedThreads.map(async (thread) => {
-      const answers = await Answer.find({ threadId: thread._id });
-      const queuePosition = await getQueuePosition(thread._id);
-      return {
-        ...thread.toObject(),
-        answers,
-        queuePosition
-      };
+    const rawRaisedThreads = await FAQThread.find({ author: targetUserId, status: visibleStatus })
+      .select('title body category author authorName status upvotes meToo isOfficial faqNumber faqSortKey repliesCount createdAt updatedAt reviewedAt reviewedBy rejectionReason rejectionPenaltyPoints priority tags')
+      .lean();
+    const raisedThreadIds = rawRaisedThreads.map(thread => thread._id);
+    const [raisedAnswers, raisedQueuePositions] = await Promise.all([
+      raisedThreadIds.length
+        ? Answer.find({ threadId: { $in: raisedThreadIds } })
+          .select('threadId body author authorName authorRole upvotes isVerified isPinned aiScores createdAt updatedAt')
+          .lean()
+        : Promise.resolve([]),
+      Promise.all(rawRaisedThreads.map(async (thread) => [String(thread._id), await getQueuePosition(thread._id)]))
+    ]);
+
+    const answersByThreadId = raisedAnswers.reduce((acc, answer) => {
+      const key = String(answer.threadId);
+      if (!acc.has(key)) acc.set(key, []);
+      acc.get(key).push(answer);
+      return acc;
+    }, new Map());
+    const queuePositionByThreadId = new Map(raisedQueuePositions);
+    const raisedThreads = rawRaisedThreads.map((thread) => ({
+      ...thread,
+      answers: answersByThreadId.get(String(thread._id)) || [],
+      queuePosition: queuePositionByThreadId.get(String(thread._id)) || null
     }));
 
     // 2. Answers given by user
-    const answersGiven = await Answer.find({ author: targetUserId });
+    const answersGiven = await Answer.find({ author: targetUserId })
+      .select('threadId body author authorName authorRole upvotes isVerified isPinned aiScores createdAt updatedAt')
+      .lean();
     
     // Find answer thread IDs to query their details (exclude rejected threads for student view)
     const answerThreadIds = answersGiven.map(ans => ans.threadId);
-    const threadsAnswered = await FAQThread.find({ _id: { $in: answerThreadIds }, status: { $ne: 'rejected' } });
+    const threadsAnswered = await FAQThread.find({ _id: { $in: answerThreadIds }, status: { $ne: 'rejected' } })
+      .select('title status')
+      .lean();
     
     // 2. Answers given by userstions (user's threads that have at least one verified answer)
-    const raisedThreadIds = rawRaisedThreads.map(t => t._id);
-    const verifiedAnswersForUserThreads = await Answer.find({ threadId: { $in: raisedThreadIds }, isVerified: true });
+    const verifiedAnswersForUserThreads = raisedThreadIds.length
+      ? await Answer.find({ threadId: { $in: raisedThreadIds }, isVerified: true })
+        .select('threadId')
+        .lean()
+      : [];
     const resolvedThreadIds = verifiedAnswersForUserThreads.map(ans => ans.threadId.toString());
     const resolvedQuestions = rawRaisedThreads.filter(t => resolvedThreadIds.includes(t._id.toString()));
 
     // 4. Upvoted questions
-    const upvotedQuestions = await FAQThread.find({ upvotes: targetUserId, status: 'active' });
+    const upvotedQuestions = await FAQThread.find({ upvotes: targetUserId, status: 'active' })
+      .select('title body category author authorName isOfficial faqNumber faqSortKey createdAt updatedAt')
+      .lean();
 
     // 5. Activity timeline (SP transactions list)
-    const activityTimeline = await SPTransaction.find({ userId: targetUserId }).sort({ timestamp: -1 });
+    const activityTimeline = await SPTransaction.find({ userId: targetUserId })
+      .sort({ timestamp: -1 })
+      .select('userId pointsChange reason timestamp')
+      .lean();
 
     // 6. Calculate FAQ contribution score (verified answers * 15 + helpful upvotes * 5 + official FAQs * 25)
     const faqContributionScore = (user.verifiedAnswersCount * 15) + (user.helpfulAnswersCount * 5) + (user.faqContributionsCount * 25);
@@ -92,7 +119,7 @@ router.get('/:userId', authMiddleware, async (req, res) => {
       .map(ans => {
         const matchingThread = threadsAnswered.find(t => t._id.toString() === ans.threadId.toString());
         return {
-          ...ans.toObject(),
+          ...ans,
           threadTitle: matchingThread ? matchingThread.title : 'Deleted Thread'
         };
       });
@@ -115,7 +142,7 @@ router.get('/:userId', authMiddleware, async (req, res) => {
       answersGiven: answersGiven.map(ans => {
         const matchingThread = threadsAnswered.find(t => t._id.toString() === ans.threadId.toString());
         return {
-          ...ans.toObject(),
+          ...ans,
           threadTitle: matchingThread ? matchingThread.title : 'Deleted Thread'
         };
       }),

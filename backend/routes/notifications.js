@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { FAQThread, Answer } = require('../models/Schemas');
+const { FAQThread, Answer, Feedback, Notification } = require('../models/Schemas');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 // Apply auth gate to all notification routes
@@ -11,13 +11,63 @@ router.get('/', async (req, res) => {
   try {
     const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     const notifications = [];
+    const storedNotifications = await Notification.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(25)
+      .select('title message type link metadata createdAt isRead')
+      .lean();
+
+    storedNotifications.forEach((notif) => {
+      notifications.push({
+        _id: notif._id.toString(),
+        title: notif.title,
+        message: notif.message,
+        type: notif.type || 'announcement',
+        link: notif.link || '',
+        metadata: notif.metadata || {},
+        createdAt: notif.createdAt,
+        isRead: notif.isRead
+      });
+    });
+
+    if (req.user.role === 'admin') {
+      const pendingCount = await FAQThread.countDocuments({
+        status: { $in: ['pending_review', 'flagged'] },
+        isMerged: false
+      });
+      if (pendingCount > 0) {
+        notifications.push({
+          _id: `admin_pending_${pendingCount}`,
+          title: 'Moderation Queue Needs Review',
+          message: `${pendingCount} student question${pendingCount === 1 ? '' : 's'} waiting for admin review.`,
+          type: 'verification',
+          createdAt: new Date()
+        });
+      }
+
+      const lowFeedbackCount = await Feedback.countDocuments({
+        sentiment: 'negative',
+        createdAt: { $gte: twoDaysAgo }
+      });
+      if (lowFeedbackCount > 0) {
+        notifications.push({
+          _id: `admin_feedback_${lowFeedbackCount}`,
+          title: 'Answer Feedback Alert',
+          message: `${lowFeedbackCount} answer${lowFeedbackCount === 1 ? '' : 's'} marked not helpful in the last 48 hours.`,
+          type: 'verification',
+          createdAt: new Date()
+        });
+      }
+
+    }
 
     // 1. Fetch approved questions (active threads authored by user, updated/approved in last 2 days)
     const approvedThreads = await FAQThread.find({
       author: req.user._id,
       status: 'active',
+      isOfficial: false,
       updatedAt: { $gte: twoDaysAgo }
-    }).select('title updatedAt');
+    }).select('title updatedAt').lean();
 
     approvedThreads.forEach(thread => {
       notifications.push({
@@ -34,7 +84,7 @@ router.get('/', async (req, res) => {
       author: req.user._id,
       status: 'rejected',
       updatedAt: { $gte: twoDaysAgo }
-    }).select('title updatedAt rejectionReason');
+    }).select('title updatedAt rejectionReason').lean();
 
     rejectedThreads.forEach(thread => {
       notifications.push({
@@ -54,7 +104,7 @@ router.get('/', async (req, res) => {
       path: 'threadId',
       match: { updatedAt: { $gte: twoDaysAgo } },
       select: 'title updatedAt'
-    });
+    }).select('threadId createdAt').lean();
 
     verifiedAnswers.forEach(answer => {
       if (answer.threadId) {

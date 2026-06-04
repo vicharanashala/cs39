@@ -11,7 +11,9 @@ import {
   UserCircle,
   X,
   CheckCircle2,
-  Trophy
+  Trophy,
+  Calendar,
+  Clock
 } from 'lucide-react';
 
 const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
@@ -70,7 +72,10 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
     feed: ['FAQ Feed', 'Resolve and discover platform questions'],
     dashboard: [user.role === 'admin' ? 'Admin Command Center' : 'My Dashboard', 'Daily FAQ operations and moderation'],
     admin: ['Admin Command Center', 'Daily FAQ operations and moderation'],
+    attendance: ['Attendance Support', 'Session access requests and issue reporting'],
     analytics: ['Analytics', 'Measure engagement, quality, and response flow'],
+    'user-activity': ['User Activity Tracking', 'Audit logins, searches, support, and FAQ actions'],
+    updates: ["What's New", 'Official FAQ changes and update tours'],
     profile: ['Profile', 'Account, trust score, and contribution profile']
   };
 
@@ -117,77 +122,82 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
   };
 
   return (
-    <header className={`sticky top-0 z-30 border-b px-4 py-3 backdrop-blur-2xl sm:px-6 transition-colors duration-300 ${
+    <header className={`sticky top-0 z-30 border-b px-4 py-3.5 backdrop-blur-2xl sm:px-6 transition-all duration-300 ${
       theme === 'dark'
-        ? 'border-white/10 bg-[#0B0C0E]/70 text-white'
-        : 'border-slate-200 bg-white/70 text-slate-800'
+        ? 'border-white/5 bg-[#050608]/75 text-white'
+        : 'border-slate-100 bg-white/75 text-slate-800 shadow-sm'
     }`}>
       <div className="flex items-center justify-between gap-4">
+        {/* Brand/Tab Section */}
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onMobileMenuToggle}
-            className={`rounded-lg p-2 transition md:hidden ${
-              theme === 'dark' ? 'text-slate-400 hover:bg-white/10 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+            className={`rounded-xl p-2 border transition md:hidden ${
+              theme === 'dark' 
+                ? 'border-white/5 text-slate-400 hover:bg-white/5 hover:text-white' 
+                : 'border-slate-100 text-slate-500 hover:bg-slate-50 hover:text-slate-900'
             }`}
             title={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {isMobileMenuOpen ? <X className="h-4.5 w-4.5" /> : <Menu className="h-4.5 w-4.5" />}
           </button>
           <div className="min-w-0">
-            <h2 className={`truncate text-base font-black tracking-tight sm:text-lg ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{title}</h2>
-            <p className={`hidden truncate text-xs font-semibold sm:block ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>{subtitle}</p>
+            <h2 className="truncate text-base font-black tracking-tight sm:text-lg">{title}</h2>
+            <p className={`hidden truncate text-[10px] font-bold sm:block ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{subtitle}</p>
           </div>
         </div>
 
-        
-
-        {/* Live Date & Time Clock */}
-        <div className={`hidden items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-extrabold md:flex ${
-          theme === 'dark' ? 'border-white/10 bg-white/[0.04] text-slate-350' : 'border-slate-200 bg-slate-50 text-slate-600'
+        {/* Live Date & Time Clock Badge */}
+        <div className={`hidden items-center gap-2 px-3.5 py-2 rounded-xl border text-[10px] font-black tracking-wider uppercase md:flex ${
+          theme === 'dark' 
+            ? 'border-white/5 bg-white/[0.01] text-slate-400' 
+            : 'border-slate-100 bg-slate-50/50 text-slate-500 shadow-sm'
         }`}>
-          <span className="text-[11px]">📅</span>
+          <Clock className="w-3.5 h-3.5 text-[#E07A15] dark:text-[#FFAE59]" />
           <span>{formattedTime}</span>
         </div>
 
+        {/* Global actions */}
         <div className="flex shrink-0 items-center gap-2">
-          {/* Notifications Trigger & Dropdown */}
+          
+          {/* Notifications Dropdown */}
           <div className="relative">
             <button
               onClick={() => {
                 setShowNotifications(!showNotifications);
                 if (!showNotifications) fetchNotifications();
               }}
-              className={`relative rounded-lg border p-2 transition ${
+              className={`relative rounded-xl border p-2.5 transition ${
                 theme === 'dark'
-                  ? 'border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 hover:text-white'
-                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              } ${showNotifications ? 'ring-2 ring-violet-500/50' : ''}`}
+                  ? 'border-white/5 bg-white/[0.01] text-slate-350 hover:bg-white/5 hover:text-white'
+                  : 'border-slate-150 bg-slate-50/50 text-slate-650 hover:bg-slate-100 hover:text-slate-900 shadow-sm'
+              } ${showNotifications ? 'ring-2 ring-indigo-500/30' : ''}`}
               title="Notifications"
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF9933] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E07A15]"></span>
                 </span>
               )}
             </button>
 
-            {/* Notifications Dropdown Drawer */}
+            {/* Notifications slide-out overlay drawer */}
             {showNotifications && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
                 
-                <div className={`absolute right-0 mt-2 z-50 w-80 sm:w-96 rounded-2xl border shadow-xl backdrop-blur-3xl overflow-hidden transition-all duration-300 origin-top-right transform scale-100 ${
+                <div className={`absolute right-0 mt-2.5 z-50 w-80 sm:w-96 rounded-2xl border shadow-2xl backdrop-blur-3xl overflow-hidden transition-all duration-300 origin-top-right transform scale-100 ${
                   theme === 'dark'
-                    ? 'border-white/10 bg-[#0B0C0E]/95 text-white shadow-black/80'
-                    : 'border-slate-200 bg-white/95 text-slate-800 shadow-slate-200'
+                    ? 'border-white/5 bg-[#0b0c10]/95 text-white'
+                    : 'border-slate-100 bg-white/95 text-slate-800'
                 }`}>
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.01]">
+                  <div className="flex items-center justify-between px-4.5 py-3.5 border-b border-slate-100 dark:border-white/5 bg-slate-50/40 dark:bg-white/[0.01]">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-black uppercase tracking-wider">Notifications</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider">Notifications</span>
                       {unreadCount > 0 && (
-                        <span className="rounded-full bg-violet-500/10 dark:bg-violet-400/20 text-violet-600 dark:text-violet-400 px-2 py-0.5 text-[10px] font-black">
+                        <span className="rounded-md bg-indigo-500/10 text-indigo-500 dark:bg-indigo-500/20 dark:text-indigo-400 px-2 py-0.5 text-[9px] font-black">
                           {unreadCount} New
                         </span>
                       )}
@@ -195,7 +205,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllAsRead}
-                        className="text-[10px] font-bold text-violet-500 hover:text-violet-600 dark:text-violet-400 dark:hover:text-violet-300 transition-colors uppercase"
+                        className="text-[9px] font-black text-[#E07A15] dark:text-[#FFAE59] hover:underline uppercase tracking-wider"
                       >
                         Mark all read
                       </button>
@@ -206,7 +216,8 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
                     {notifications.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
                         <span className="text-2xl mb-1">🔔</span>
-                        <p className="text-xs text-slate-400 font-medium">All quiet! No notifications in the last 48 hours.</p>
+                        <p className="text-[10px] text-slate-450 font-bold uppercase tracking-wider">All caught up!</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">No recent alerts in the last 48 hours.</p>
                       </div>
                     ) : (
                       notifications.map(notif => {
@@ -217,15 +228,15 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
                             onClick={() => markAsRead(notif._id)}
                             className={`flex items-start gap-3 p-4 text-left transition-colors cursor-pointer ${
                               isRead 
-                                ? 'bg-transparent hover:bg-slate-50/40 dark:hover:bg-white/[0.02]' 
-                                : 'bg-violet-500/5 dark:bg-violet-400/5 hover:bg-violet-500/10 dark:hover:bg-violet-400/10'
+                                ? 'bg-transparent hover:bg-slate-50/40 dark:hover:bg-white/[0.01]' 
+                                : 'bg-indigo-500/[0.02] hover:bg-indigo-500/[0.05]'
                             }`}
                           >
                             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
                               notif.type === 'approval' 
                                 ? 'bg-emerald-500/10 text-emerald-500' 
                                 : notif.type === 'rejection' 
-                                ? 'bg-red-500/10 text-red-500' 
+                                ? 'bg-rose-500/10 text-rose-500' 
                                 : 'bg-amber-500/10 text-amber-500'
                             }`}>
                               {notif.type === 'approval' ? <CheckCircle2 className="h-4 w-4" /> : notif.type === 'rejection' ? <X className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}
@@ -246,7 +257,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
                             </div>
                             
                             {!isRead && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-violet-400 shrink-0 mt-1.5" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0 mt-1.5 animate-pulse" />
                             )}
                           </div>
                         );
@@ -258,36 +269,40 @@ const Navbar = ({ onMobileMenuToggle, isMobileMenuOpen }) => {
             )}
           </div>
           
+          {/* Theme switcher */}
           <button
             onClick={toggleTheme}
-            className={`rounded-lg border p-2 transition ${
-              theme === 'dark' ? 'border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 hover:text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            className={`rounded-xl border p-2.5 transition ${
+              theme === 'dark' 
+                ? 'border-white/5 bg-white/[0.01] text-slate-350 hover:bg-white/5 hover:text-white' 
+                : 'border-slate-150 bg-slate-50/50 text-slate-650 hover:bg-slate-100 hover:text-slate-900 shadow-sm'
             }`}
-            title="Toggle dark mode"
+            title="Toggle dark/light theme"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-300" /> : <Moon className="h-4 w-4" />}
+            {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-300 animate-pulse" /> : <Moon className="h-4 w-4" />}
           </button>
 
-          <button
-            className={`flex items-center gap-2 rounded-lg border py-1.5 pl-2 pr-3 text-left transition ${
-              theme === 'dark' ? 'border-white/10 bg-white/[0.06] hover:bg-white/10' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+          {/* User badge */}
+          <div
+            className={`flex items-center gap-2 rounded-xl border py-1.5 pl-2 pr-3.5 text-left shadow-sm ${
+              theme === 'dark' ? 'border-white/5 bg-[#0b0c10]' : 'border-slate-150 bg-slate-50/50'
             }`}
-            title="Profile"
+            title="Active profile badge"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-violet-500 text-xs font-black uppercase text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-brand-500 to-indigo-500 text-xs font-black uppercase text-white shadow-md">
               {user.username?.charAt(0)}
             </span>
             <span className="hidden min-w-0 sm:block">
-              <span className={`block max-w-[110px] truncate text-xs font-black capitalize ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{user.username}</span>
+              <span className="block max-w-[100px] truncate text-xs font-black capitalize">{user.username}</span>
               {user.role !== 'admin' && (
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-blue-200/70">{user.spPoints} SP</span>
+                <span className="block text-[9px] font-black uppercase tracking-widest text-[#E07A15] dark:text-[#FFAE59]">{user.spPoints} SP</span>
               )}
               {user.role === 'admin' && (
-                <span className="block text-[9px] font-bold uppercase tracking-wider text-brand-500">Admin</span>
+                <span className="block text-[8px] font-black uppercase tracking-widest text-indigo-500 dark:text-indigo-400">Admin</span>
               )}
             </span>
-            <UserCircle className={`hidden h-4 w-4 sm:block ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
-          </button>
+          </div>
+
         </div>
       </div>
     </header>

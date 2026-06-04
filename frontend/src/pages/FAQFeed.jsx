@@ -1,77 +1,112 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { ChevronDown, ChevronRight, MessageCircle, Plus, Search, Sparkles, Star, Wand2, Volume2, Square, Loader2, CheckCircle2, AlertCircle, Trash2, Zap } from 'lucide-react';
+import { ChevronDown, ChevronRight, Flame, MessageCircle, Plus, Search, Sparkles, Star, Wand2, Volume2, Square, Loader2, CheckCircle2, AlertCircle, Trash2, Zap, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import api from '../utils/api';
+import Config from '../config';
 
-// ── Trending FAQs Section ───────────────────────────────────────────────
-const TrendingSection = ({ threads, loading, onSelect }) => {
-  if (loading) {
-    return (
-      <div className="flex gap-3 overflow-hidden py-1">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="w-52 h-20 rounded-xl bg-slate-100 dark:bg-brand-800 animate-pulse flex-shrink-0" />
-        ))}
-      </div>
-    );
-  }
-  if (!threads || threads.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-2">
+const TrendingSection = ({ threads, loading, onSelect }) => (
+  <section className="overflow-hidden border border-white/50 bg-white/40 dark:border-white/5 dark:bg-[#0b0c10]/45 shadow-[0_8px_30px_rgb(0,0,0,0.03)] backdrop-blur-md rounded-3xl">
+    <div className="flex items-center justify-between gap-3 border-b border-slate-200/30 dark:border-white/5 px-5 py-4">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-500">🔥 Trending</span>
-        <div className="flex-1 h-px bg-slate-200 dark:bg-brand-800" />
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/60 bg-white/50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+          <Flame className="h-4 w-4 text-orange-500" />
+        </span>
+        <div>
+          <h2 className="text-xs font-black uppercase tracking-[0.16em] text-slate-805 dark:text-slate-100">Trending FAQs</h2>
+          <p className="text-[10px] font-bold text-slate-400">Ranked by views, helpful answers, searches, and freshness</p>
+        </div>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-1 py-1 scrollbar-thin">
-        {threads.map((thread, i) => (
+      <span className="hidden rounded-lg border border-white/60 bg-white/50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 sm:inline-flex shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+        Live
+      </span>
+    </div>
+    <div className="flex gap-3 overflow-x-auto px-5 py-4">
+      {loading ? (
+        [...Array(4)].map((_, index) => (
+          <div key={index} className="h-24 w-64 flex-shrink-0 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/[0.04]" />
+        ))
+      ) : threads.length === 0 ? (
+        <div className="w-full rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs font-bold text-slate-400 dark:border-white/10">
+          Trending FAQs will appear after questions receive activity.
+        </div>
+      ) : (
+        threads.map((thread, index) => {
+          const trendStyle = {
+            Hot: 'border-orange-500/20 bg-orange-500/5 text-orange-600 dark:border-orange-500/25 dark:bg-orange-500/10 dark:text-[#FFAE59]',
+            Rising: 'border-cyan-500/20 bg-cyan-500/5 text-cyan-600 dark:border-cyan-500/25 dark:bg-cyan-500/10 dark:text-cyan-300',
+            Popular: 'border-indigo-500/20 bg-indigo-500/5 text-indigo-600 dark:border-indigo-500/25 dark:bg-indigo-500/10 dark:text-indigo-300',
+            New: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300'
+          }[thread.trend] || 'border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300';
+          return (
           <button
             key={thread._id}
             onClick={() => onSelect(thread)}
-            className="flex items-start gap-2.5 w-52 flex-shrink-0 bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-xl px-3 py-2.5 text-left hover:border-brand-400 dark:hover:border-brand-500 transition-all shadow-sm hover:shadow-md group"
+            className="group relative w-72 flex-shrink-0 overflow-hidden rounded-2xl border border-white/50 bg-white/30 p-4 text-left shadow-[0_4px_20px_rgba(0,0,0,0.02)] backdrop-blur-sm transition-all duration-300 hover:border-indigo-500/25 hover:bg-white/60 hover:shadow-[0_12px_24px_rgba(99,102,241,0.04)] dark:border-white/5 dark:bg-white/[0.035] dark:hover:border-indigo-500/20 dark:hover:bg-white/[0.06] card-hover cursor-pointer"
           >
-            <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${
-              i === 0 ? 'bg-amber-400 text-amber-900' : i === 1 ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : i === 2 ? 'bg-orange-200 dark:bg-orange-900 text-orange-700 dark:text-orange-300' : 'bg-slate-100 dark:bg-brand-800 text-slate-400 dark:text-slate-500'
-            }`}>
-              {i + 1}
-            </span>
-            <span className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 leading-snug line-clamp-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
-                {thread.title}
-              </p>
-              <p className="text-[10px] text-slate-400 mt-1">{thread.category}</p>
-            </span>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-[10px] font-black ${
+                index === 0 ? 'bg-indigo-500/10 text-indigo-650 border border-indigo-500/20 dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'
+              }`}>
+                {index + 1}
+              </span>
+              <span className="rounded-lg border border-white/60 bg-white/45 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-slate-505 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+                {thread.category}
+              </span>
+            </div>
+            <p className="line-clamp-2 text-xs font-black leading-snug text-slate-700 transition group-hover:text-slate-950 dark:text-slate-100 dark:group-hover:text-white">
+              {thread.title}
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <span className={`rounded-lg border px-2 py-0.5 text-[8px] font-black uppercase tracking-wider ${trendStyle}`}>
+                {thread.trend || 'Rising'}
+              </span>
+              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">{Math.round(thread.score || 0)} score</span>
+            </div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100/60 dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-indigo-500/70 transition-all duration-700 dark:bg-slate-200"
+                style={{ width: `${Math.min(100, Math.max(8, thread.score || 0))}%` }}
+              />
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[8px] font-black uppercase tracking-wider text-slate-400">
+              <span title="Recent views">{thread.metrics?.recentViews || 0} views</span>
+              <span title="Helpful answer marks">{thread.metrics?.helpfulVotes || 0} helpful</span>
+              <span title="Search clicks">{thread.metrics?.searchFrequency || 0} search</span>
+            </div>
           </button>
-        ))}
-      </div>
+          );
+        })
+      )}
     </div>
-  );
-};
+  </section>
+);
 
 const FAQ_GROUPS = [
   {
     id: 'getting-started',
     title: 'Getting Started',
-    description: 'Eligibility, selection and joining',
+    description: 'Eligibility, selection and joining guidelines',
     categories: ['Internship', 'Selection Process', 'Announcements'],
     postCategory: 'Internship'
   },
   {
     id: 'documents-dates',
     title: 'Documents & Dates',
-    description: 'NOC, certificates and deadlines',
+    description: 'NOC templates, certificates and deadlines',
     categories: ['Certificates', 'Deadlines', 'Payments'],
     postCategory: 'Certificates'
   },
   {
     id: 'learning-work',
     title: 'Learning & Work',
-    description: 'Attendance, teams and projects',
+    description: 'Attendance flow, teams and project submissions',
     categories: ['Attendance', 'Assignments', 'Mentorship', 'Projects'],
     postCategory: 'Projects'
   },
   {
     id: 'platform-help',
     title: 'Platform & Help',
-    description: 'Login, technical issues and support',
+    description: 'Vite portal login and technical issues',
     categories: ['Technical Issues', 'General Queries', 'Others'],
     postCategory: 'Technical Issues'
   }
@@ -98,6 +133,8 @@ const FAQFeed = () => {
   const [savedLoading, setSavedLoading] = useState(false);
   const [trending, setTrending] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
+  const [duplicateMatches, setDuplicateMatches] = useState([]);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
 
   // ── TTS state ───────────────────────────────────────────────────────────
   const [ttsText, setTtsText] = useState('');
@@ -217,6 +254,31 @@ const FAQFeed = () => {
   }, []);
 
   useEffect(() => {
+    if (!showAskModal || newTitle.trim().length < 5) {
+      setDuplicateMatches([]);
+      setDuplicateLoading(false);
+      return;
+    }
+
+    setDuplicateLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.post('/threads/check-duplicate', {
+          title: newTitle.trim(),
+          category: undefined
+        });
+        setDuplicateMatches((res.data || []).filter(item => item.score >= Config.DUPLICATE_SIMILARITY_THRESHOLD));
+      } catch (err) {
+        setDuplicateMatches([]);
+      } finally {
+        setDuplicateLoading(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [showAskModal, newTitle, newGroup]);
+
+  useEffect(() => {
     if (mode === 'saved') {
       fetchSavedThreads();
     } else {
@@ -247,14 +309,12 @@ const FAQFeed = () => {
 
   const fetchThreads = async () => {
     setLoading(true);
+    let cachedOfficialThreads = null;
     if (mode === 'official' && !search.trim()) {
       const cached = localStorage.getItem('cached_official_faqs');
       if (cached) {
         try {
-          setThreads(JSON.parse(cached));
-          setExpandedThreadId(null);
-          setLoading(false);
-          return;
+          cachedOfficialThreads = JSON.parse(cached);
         } catch (e) {
           console.error('Failed to parse cached official FAQs:', e);
         }
@@ -295,7 +355,12 @@ const FAQFeed = () => {
       }
     } catch (error) {
       console.error('Fetch threads error:', error.message);
-      showAlert('Failed to load FAQs. Check the backend connection.', 'error');
+      if (cachedOfficialThreads && mode === 'official' && !search.trim()) {
+        setThreads(cachedOfficialThreads);
+        setExpandedThreadId(null);
+      } else {
+        showAlert('Failed to load FAQs. Check the backend connection.', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -312,9 +377,10 @@ const FAQFeed = () => {
     setTrendingLoading(true);
     try {
       const res = await api.get('/threads/trending');
-      setTrending(res.data);
+      setTrending(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('fetchTrending error:', err.message);
+      setTrending([]);
     } finally {
       setTrendingLoading(false);
     }
@@ -423,37 +489,40 @@ const FAQFeed = () => {
   };
 
   return (
-    <div className="soft-page home-soft-theme max-w-5xl mx-auto px-5 py-7 space-y-6 font-sans">
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div className="soft-page max-w-5xl mx-auto px-5 py-7 space-y-6 font-sans">
+      
+      {/* ── HEADER OVERHAUL ── */}
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-slate-200/50 dark:border-white/5 pb-5">
         <div>
-          <p className="soft-accent text-[10px] uppercase tracking-[0.22em] font-bold">Support Center</p>
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">Find an answer</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Four simple sections. Short answers first.</p>
+          <p className="soft-accent text-[9px] uppercase tracking-[0.25em] font-extrabold">Student Support Hub</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1.5 tracking-tight">
+            How can we help you?
+          </h1>
+          <p className="text-xs text-slate-450 dark:text-slate-400 mt-1">Four primary folders. Verified guidance, automated by IIT Ropar team.</p>
         </div>
         <button
           onClick={() => setShowAskModal(true)}
-          className="soft-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold"
+          className="soft-primary inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-xs font-black shadow-lg shadow-amber-500/10 cursor-pointer card-hover shrink-0"
         >
           <Plus className="w-4 h-4" />
           Ask a question
         </button>
       </header>
 
-
-
-      <div className="flex gap-2">
+      {/* ── MODE TABS ── */}
+      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-[#07080b]/80 border border-slate-200/50 dark:border-white/5 rounded-2xl w-fit">
         {[
           ['official', 'Official FAQ'],
-          ['community', 'Community'],
-          ['saved', `Saved${bookmarks.length > 0 ? ` (${bookmarks.length})` : ''}`]
+          ['community', 'Student Discussions'],
+          ['saved', `Bookmarked (${bookmarks.length})`]
         ].map(([id, label]) => (
           <button
             key={id}
             onClick={() => setMode(id)}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-colors ${
+            className={`px-4.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               mode === id
-                ? 'soft-primary'
-                : 'bg-white dark:bg-brand-900 text-slate-500 border border-slate-200 dark:border-brand-800'
+                ? 'soft-primary shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             {label}
@@ -461,67 +530,93 @@ const FAQFeed = () => {
         ))}
       </div>
 
-      {/* Section group pills — hidden in saved mode */}
+      {mode !== 'saved' && (
+        <TrendingSection
+          threads={trending}
+          loading={trendingLoading}
+          onSelect={(thread) => {
+            if (thread.faqNumber) {
+              const group = FAQ_GROUPS.find(item => item.categories.includes(thread.category));
+              if (group) setSelectedGroup(group.id);
+              setMode('official');
+              setSelectedThreadId(null);
+              window.location.hash = `faq-${thread.faqNumber}`;
+              setTimeout(() => {
+                document.getElementById(`faq-${thread.faqNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+              return;
+            }
+            setSelectedThreadId(thread._id);
+          }}
+        />
+      )}
+
+      {/* ── CATEGORY SECTION CARDS GRID ── */}
       {!isSavedMode && (
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {groupedThreads.map(group => (
-            <button
-              key={group.id}
-              onClick={() => setSelectedGroup(group.id)}
-              className={`p-4 rounded-2xl border text-left transition-colors ${
-                selectedGroup === group.id
-                  ? 'soft-primary border-transparent'
-                  : 'bg-white dark:bg-brand-900 border-slate-200 dark:border-brand-800 text-slate-800 dark:text-white'
-              }`}
-            >
-              <p className="text-sm font-bold">{group.title}</p>
-              <p className={`text-[11px] mt-1 ${selectedGroup === group.id ? 'text-white/75' : 'text-slate-400'}`}>
-                {group.description}
-              </p>
-              <p className={`text-xs font-bold mt-4 ${selectedGroup === group.id ? 'text-white' : 'soft-accent'}`}>
-                {group.threads.length} questions
-              </p>
-            </button>
-          ))}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {groupedThreads.map(group => {
+            const isSelected = selectedGroup === group.id;
+            return (
+              <button
+                key={group.id}
+                onClick={() => setSelectedGroup(group.id)}
+                className={`p-5 rounded-2xl border text-left transition-all relative cursor-pointer card-hover ${
+                  isSelected
+                    ? 'soft-primary border-transparent'
+                    : 'bg-white/70 dark:bg-[#0b0c10]/40 border-slate-200/50 dark:border-white/5 text-slate-800 dark:text-white'
+                }`}
+              >
+                {/* Visual state active bar */}
+                {isSelected && (
+                  <span className="absolute top-2 right-2 flex h-2 w-2">
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white animate-pulse"></span>
+                  </span>
+                )}
+                
+                <h3 className="text-sm font-extrabold tracking-tight">{group.title}</h3>
+                <p className={`text-[11px] leading-relaxed mt-1.5 ${isSelected ? 'text-white/80' : 'text-slate-450 dark:text-slate-400'}`}>
+                  {group.description}
+                </p>
+                <p className={`text-[10px] font-black uppercase tracking-wider mt-5 ${isSelected ? 'text-white' : 'soft-accent'}`}>
+                  {group.threads.length} Questions
+                </p>
+              </button>
+            );
+          })}
         </section>
       )}
 
-      <TrendingSection
-        threads={trending}
-        loading={trendingLoading}
-        onSelect={(thread) => {
-          setSelectedThreadId(thread._id);
-          window.location.hash = thread.faqNumber ? `#faq-${thread.faqNumber}` : `#thread-${thread._id}`;
-        }}
-      />
-
-      <section className="soft-panel bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-slate-100 dark:border-brand-800 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      {/* ── MAIN CONTENT WORKSPACE ── */}
+      <section className="soft-panel overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white/75 dark:bg-[#0b0c10]/30 shadow-xl backdrop-blur-3xl">
+        
+        {/* Workspace Toolbar */}
+        <div className="p-5 border-b border-slate-150 dark:border-white/5 flex flex-col md:flex-row gap-4 md:items-center md:justify-between bg-slate-50/20 dark:bg-white/[0.01]">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              {isSavedMode ? 'Saved FAQs' : activeGroup.title}
+            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white">
+              {isSavedMode ? 'Bookmarked Answers' : activeGroup.title}
             </h2>
-            <p className="text-[11px] text-slate-400">
-              {isSavedMode ? 'Your bookmarked FAQs' : mode === 'official' ? 'Verified FAQ answers' : 'Student discussions'}
+            <p className="text-[11px] font-bold text-slate-400">
+              {isSavedMode ? 'Your curated locally pinned FAQs' : mode === 'official' ? 'Staff vetted expert guidance solutions' : 'Intern peer discussions & questions'}
             </p>
           </div>
-          <div className="flex flex-col gap-2 w-full sm:w-72">
+          
+          <div className="flex flex-col gap-2 w-full md:w-80 shrink-0">
             <div className="relative">
-              <Search className="absolute w-3.5 h-3.5 text-slate-400 left-3 top-2.5" />
+              <Search className="absolute w-3.5 h-3.5 text-slate-400 left-3.5 top-3" />
               <input
                 value={search}
                 onChange={event => setSearch(event.target.value)}
-                placeholder={isSavedMode ? "Search saved FAQs" : "Search this section"}
-                className="w-full rounded-lg border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 pl-9 pr-16 py-2 text-xs outline-none text-slate-800 dark:text-slate-100"
+                placeholder={isSavedMode ? "Filter bookmarked cards..." : "Search this academic directory..."}
+                className="w-full rounded-xl bg-slate-50 dark:bg-[#07080b]/60 pl-10 pr-20 py-2.5 text-xs outline-none text-slate-800 dark:text-slate-100"
               />
               {!isSavedMode && (
                 <button
                   onClick={() => setSmartSearch(s => !s)}
-                  title={smartSearch ? 'Disable smart search' : 'Enable smart search with paraphrasing'}
-                  className={`absolute right-2 top-1.5 px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                  title={smartSearch ? 'Disable semantic checker' : 'Enable local similarity duplicate check'}
+                  className={`absolute right-2 top-2 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
                     smartSearch
-                      ? 'soft-primary'
-                      : 'bg-slate-100 dark:bg-brand-800 text-slate-500 dark:text-slate-400'
+                      ? 'soft-primary shadow-sm'
+                      : 'bg-slate-200/60 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10'
                   }`}
                 >
                   <Wand2 className="w-3 h-3" />
@@ -530,19 +625,21 @@ const FAQFeed = () => {
               )}
             </div>
 
-            {/* Paraphrase chips */}
+            {/* Smart Search Variant suggestions chips */}
             {!isSavedMode && (paraphraseLoading || paraphrases.length > 0) && (
-              <div className="flex flex-wrap gap-1.5 items-center">
+              <div className="flex flex-wrap gap-1.5 items-center mt-1 animate-slide-in">
                 {paraphraseLoading ? (
-                  <span className="text-[10px] text-slate-400">Generating variants...</span>
+                  <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin text-[#E07A15]" /> Checking variants...
+                  </span>
                 ) : (
                   <>
-                    <span className="text-[9px] text-slate-400 font-bold shrink-0">Variants:</span>
+                    <span className="text-[9px] text-[#E07A15] dark:text-[#FFAE59] font-black uppercase shrink-0">Semantic Variants:</span>
                     {paraphrases.map((p, i) => (
                       <button
                         key={i}
                         onClick={() => setSearch(p)}
-                        className="px-2 py-0.5 bg-brand-50 dark:bg-brand-950 border border-brand-200 dark:border-brand-700 rounded-full text-[10px] text-brand-600 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900 transition-colors"
+                        className="px-2 py-0.5 bg-slate-100 dark:bg-white/5 border border-slate-200/40 dark:border-white/5 rounded-full text-[10px] text-slate-650 dark:text-slate-300 hover:border-amber-500/20 hover:text-amber-500 dark:hover:text-[#FFAE59] transition-colors cursor-pointer"
                       >
                         {p}
                       </button>
@@ -554,139 +651,39 @@ const FAQFeed = () => {
           </div>
         </div>
 
+        {/* List listings container */}
         {isSavedMode ? (
           savedLoading ? (
-            <p className="p-8 text-center text-xs text-slate-400">Loading saved FAQs...</p>
+            <div className="p-12 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-[#E07A15]" />
+              <span>Fetching bookmarks...</span>
+            </div>
           ) : visibleThreads.length === 0 ? (
-            <p className="p-8 text-center text-xs text-slate-400">
-              {search.trim() ? "No matching saved FAQs found." : "No saved FAQs yet. Click the Star icon on any FAQ to save it here."}
-            </p>
+            <div className="p-12 text-center text-xs text-slate-450 dark:text-slate-400">
+              {search.trim() ? "No matching bookmarked solutions found." : "Your bookmark chest is empty. Star items in the feed directory to view them offline."}
+            </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-brand-800">
+            <div className="divide-y divide-slate-150 dark:divide-white/5">
               {visibleThreads.map(thread => {
                 const anchorId = thread.faqNumber ? `faq-${thread.faqNumber}` : `thread-${thread._id}`;
                 const showBody = thread.body && thread.body.trim().toLowerCase() !== thread.title.trim().toLowerCase();
                 return (
-                  <article id={anchorId} key={thread._id} className="p-5 flex flex-col gap-3">
+                  <article id={anchorId} key={thread._id} className="p-6 flex flex-col gap-4 hover:bg-slate-50/[0.15] dark:hover:bg-white/[0.005] transition-colors">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         {thread.faqNumber && (
-                          <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-brand-800 text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-brand-700">
+                          <span className="inline-block px-2 py-0.5 rounded bg-slate-100 dark:bg-[#07080b] text-[9px] font-mono font-black text-[#E07A15] dark:text-[#FFAE59] border border-slate-200 dark:border-white/5 shadow-sm">
                             #{thread.faqNumber}
                           </span>
                         )}
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-50/50 dark:bg-brand-950 text-brand-600 dark:text-brand-400 border border-brand-100 dark:border-brand-800">
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
                           {thread.category}
                         </span>
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-[9px] font-bold text-amber-500 border border-amber-200 dark:border-amber-800">
-                          SAVED
+                        <span className="inline-block px-2 py-0.5 rounded bg-amber-500/10 text-[9px] font-black text-amber-500 border border-amber-500/20 uppercase tracking-widest">
+                          Saved
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const saved = await toggleBookmark(thread._id, thread);
-                            if (saved !== null) {
-                              api.post('/admin/analytics/log-activity', {
-                                action: 'bookmark',
-                                metadata: { threadId: thread._id, saved }
-                              }).catch(() => {});
-                            }
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-brand-800 transition-colors text-amber-400"
-                          title="Remove bookmark"
-                        >
-                          <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white leading-snug">
-                        {thread.title}
-                      </h3>
-                      {showBody && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-line leading-relaxed">
-                          {thread.body}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Inline Answer Panel */}
-                    <div className="mt-2 p-4 rounded-xl bg-slate-50 dark:bg-brand-950/30 border border-slate-100 dark:border-brand-850 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-450">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        <span>Answer</span>
-                      </div>
-                      <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-350 whitespace-pre-line">
-                        {thread.answerText || 'No answer available yet.'}
-                      </p>
-                    </div>
-
-                    <div className="flex justify-end mt-1">
-                      <button
-                        onClick={() => setSelectedThreadId(thread._id)}
-                        className="text-[11px] text-brand-500 dark:text-brand-455 hover:underline font-bold"
-                      >
-                        Open discussion &rarr;
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )
-        ) : loading ? (
-          <p className="p-8 text-center text-xs text-slate-400">Loading questions...</p>
-        ) : visibleThreads.length === 0 ? (
-          <p className="p-8 text-center text-xs text-slate-400">No questions in this section yet.</p>
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-brand-800">
-            {visibleThreads.map(thread => {
-              const isExpanded = expandedThreadId === thread._id;
-              const answer = answers[thread._id]?.[0];
-              const anchorId = thread.faqNumber ? `faq-${thread.faqNumber}` : `thread-${thread._id}`;
-              const isBookmarked = bookmarks.includes(thread._id);
-              return (
-                <article id={anchorId} key={thread._id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <button onClick={() => toggleAnswer(thread._id)} className="flex items-start gap-2 flex-wrap text-left flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
-                        {thread.title}
-                        {thread.faqNumber && (
-                          <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-brand-800 text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-brand-700 shrink-0 mt-0.5">
-                            #{thread.faqNumber}
-                          </span>
-                        )}
-                        {thread.priority === 'urgent' && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-rose-500/10 text-[9px] font-black text-rose-500 border border-rose-500/20 uppercase tracking-wider shrink-0 mt-0.5">
-                            <Zap className="w-2.5 h-2.5" />Urgent
-                          </span>
-                        )}
-                        {thread.priority === 'high' && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-500/10 text-[9px] font-black text-orange-500 border border-orange-500/20 uppercase tracking-wider shrink-0 mt-0.5">
-                            <Zap className="w-2.5 h-2.5" />High
-                          </span>
-                        )}
-                      </p>
-                      {/* Auto-analysis tags row */}
-                      {thread.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {thread.tags.slice(0, 4).map(tag => (
-                            <span key={tag} className="inline-flex items-center px-1.5 py-0.5 bg-brand-500/8 text-brand-600 dark:text-brand-400 text-[9px] font-bold rounded-full border border-brand-500/15">
-                              {tag}
-                            </span>
-                          ))}
-                          {thread.analysisMetadata?.confidence > 0 && (
-                            <span className="text-[9px] text-slate-400 font-medium ml-1">
-                              {Math.round(thread.analysisMetadata.confidence * 100)}% conf.
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </button>
-                    <div className="flex items-center gap-1 shrink-0">
+                      
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
@@ -698,34 +695,169 @@ const FAQFeed = () => {
                             }).catch(() => {});
                           }
                         }}
-                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-brand-800 transition-colors"
-                        title={isBookmarked ? 'Remove bookmark' : 'Save FAQ'}
+                        className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 text-amber-400 hover:bg-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer shadow-sm"
+                        title="Remove bookmark"
                       >
-                        <Star
-                          className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600'}`}
-                        />
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                       </button>
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-brand-500" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <h3 className="text-sm sm:text-base font-extrabold text-slate-850 dark:text-white leading-snug">
+                        {thread.title}
+                      </h3>
+                      {showBody && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-line leading-relaxed">
+                          {thread.body}
+                        </p>
                       )}
                     </div>
-                  </div>
-                  {isExpanded && (
-                    <div className="mt-3 pl-3 border-l-2 border-brand-500/20">
-                      {answerLoading && !answer ? (
-                        <p className="text-xs text-slate-400">Loading answer...</p>
-                      ) : answer ? (
-                        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-line">{answer.body}</p>
-                      ) : (
-                        <p className="text-xs text-slate-400">No answer available yet.</p>
-                      )}
+
+                    {/* Inline Vetted Answer display */}
+                    <div className="p-4.5 rounded-2xl bg-emerald-500/[0.02] dark:bg-emerald-500/[0.01] border border-emerald-500/20 dark:border-emerald-500/10 space-y-2 relative overflow-hidden">
+                      <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Vetted Answer</span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line font-medium">
+                        {thread.answerText || 'Expert response validation pending review.'}
+                      </p>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
                       <button
                         onClick={() => setSelectedThreadId(thread._id)}
-                        className="mt-3 text-[11px] text-brand-500 font-bold"
+                        className="text-[11px] text-[#E07A15] dark:text-[#FFAE59] hover:underline font-black uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                       >
-                        Open discussion
+                        Open Peer Board &rarr;
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )
+        ) : loading ? (
+          <div className="py-20 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-[#E07A15]" />
+              <span>Parsing repository questions...</span>
+          </div>
+        ) : visibleThreads.length === 0 ? (
+          <div className="py-20 text-center text-xs text-slate-450 dark:text-slate-400">
+            No questions posted under this block. Click Ask Question to create one.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-150 dark:divide-white/5">
+            {visibleThreads.map(thread => {
+              const isExpanded = expandedThreadId === thread._id;
+              const answer = answers[thread._id]?.[0];
+              const anchorId = thread.faqNumber ? `faq-${thread.faqNumber}` : `thread-${thread._id}`;
+              const isBookmarked = bookmarks.includes(thread._id);
+              return (
+                <article id={anchorId} key={thread._id} className="p-4.5 hover:bg-slate-50/[0.1] dark:hover:bg-white/[0.003] transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <button onClick={() => toggleAnswer(thread._id)} className="flex items-start gap-2.5 flex-wrap text-left flex-1 min-w-0 cursor-pointer">
+                      <p className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-slate-150 flex items-center gap-2 flex-wrap">
+                        {thread.title}
+                        {thread.faqNumber && (
+                          <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#07080b] text-[9px] font-mono font-black text-[#E07A15] dark:text-[#FFAE59] border border-slate-200 dark:border-white/5 shadow-sm shrink-0 mt-0.5">
+                            #{thread.faqNumber}
+                          </span>
+                        )}
+                        {thread.priority === 'urgent' && (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-rose-500/10 text-[9px] font-black text-rose-500 border border-rose-500/20 uppercase tracking-widest shrink-0 mt-0.5 animate-pulse">
+                            <Zap className="w-2.5 h-2.5" />Urgent
+                          </span>
+                        )}
+                        {thread.priority === 'high' && (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-orange-500/10 text-[9px] font-black text-orange-500 border border-orange-500/20 uppercase tracking-widest shrink-0 mt-0.5">
+                            <Zap className="w-2.5 h-2.5" />High
+                          </span>
+                        )}
+                      </p>
+                      
+                      {/* Dynamic Heuristic tags row */}
+                      {thread.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 w-full mt-1.5">
+                          {thread.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="inline-flex items-center px-2 py-0.5 bg-indigo-500/[0.05] dark:bg-indigo-500/[0.03] text-indigo-500 dark:text-indigo-400 text-[8px] font-black uppercase tracking-wider rounded-md border border-indigo-500/10">
+                              {tag}
+                            </span>
+                          ))}
+                          {thread.analysisMetadata?.confidence > 0 && (
+                            <span className="text-[9px] text-slate-400 font-bold ml-1.5 mt-0.5">
+                              {Math.round(thread.analysisMetadata.confidence * 100)}% Match
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </button>
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const saved = await toggleBookmark(thread._id, thread);
+                          if (saved !== null) {
+                            api.post('/admin/analytics/log-activity', {
+                              action: 'bookmark',
+                              metadata: { threadId: thread._id, saved }
+                            }).catch(() => {});
+                          }
+                        }}
+                        className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer shadow-sm"
+                        title={isBookmarked ? 'Remove bookmark' : 'Bookmark question'}
+                      >
+                        <Star
+                          className={`w-3.5 h-3.5 transition-transform hover:scale-110 ${isBookmarked ? 'fill-amber-400 text-amber-400' : 'text-slate-350 dark:text-slate-550'}`}
+                        />
+                      </button>
+                      <button 
+                        onClick={() => toggleAnswer(thread._id)}
+                        className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all cursor-pointer shadow-sm text-slate-405"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-[#E07A15]" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded block styling */}
+                  {isExpanded && (
+                    <div className="mt-4 pl-4 border-l-2 border-[#E07A15] dark:border-[#FFAE59] animate-slide-in space-y-3">
+                      {answerLoading && !answer ? (
+                        <div className="py-2 text-xs text-slate-400 flex items-center gap-1.5">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#E07A15]" />
+                          <span>Extracting vetted guidance...</span>
+                        </div>
+                      ) : answer ? (
+                        <div className="text-xs leading-relaxed text-slate-650 dark:text-slate-300 font-medium whitespace-pre-line bg-slate-100/40 dark:bg-[#07080b]/40 p-4 border border-slate-200/40 dark:border-white/5 rounded-2xl relative">
+                          <p>{answer.body}</p>
+                          <div className="flex justify-end mt-3 gap-2">
+                            <button
+                              onClick={() => {
+                                setTtsText(answer.body);
+                                setTimeout(() => ttsPlay(), 50);
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase bg-slate-200/60 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition flex items-center gap-1 cursor-pointer"
+                              title="Listen to answer"
+                            >
+                              <Volume2 className="w-3 h-3" /> Audio Guidance
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-450 dark:text-slate-500 font-bold italic">Verification review in progress. No official reply available yet.</p>
+                      )}
+                      
+                      <button
+                        onClick={() => setSelectedThreadId(thread._id)}
+                        className="text-[11px] text-[#E07A15] dark:text-[#FFAE59] font-black uppercase tracking-wider hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Open Discussion Board &rarr;
                       </button>
                     </div>
                   )}
@@ -736,38 +868,113 @@ const FAQFeed = () => {
         )}
       </section>
 
-      <div className="flex items-center gap-2 text-xs text-slate-400">
-        <Sparkles className="w-3.5 h-3.5" />
-        The assistant uses these FAQs directly and returns compact answers to keep usage efficient.
+      {/* Info card footer */}
+      <div className="flex items-center gap-2.5 text-xs text-slate-400 dark:text-slate-500 font-medium bg-slate-50 dark:bg-white/[0.01] p-4 rounded-2xl border border-slate-150 dark:border-white/5 max-w-fit">
+        <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
+        <span>RAG Copilot uses this validated directory directly to synthesize custom AI answers for search flows.</span>
       </div>
 
+      {/* ── ASK A QUESTION DIALOG MODAL ── */}
       {showAskModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <form onSubmit={createQuestion} className="soft-panel w-full max-w-md rounded-2xl bg-white dark:bg-brand-900 border border-slate-200 dark:border-brand-800 p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <MessageCircle className="soft-accent w-4 h-4" />
-              <h2 className="text-sm font-bold dark:text-white">Ask the community</h2>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={createQuestion} className="nexus-glass w-full max-w-md rounded-3xl p-6 space-y-4 border border-slate-200/50 dark:border-white/5 shadow-2xl animate-slide-in">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="soft-accent w-5 h-5" />
+                <h2 className="text-sm font-extrabold dark:text-white">Ask the Student Community</h2>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowAskModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <input
-              autoFocus
-              required
-              maxLength={180}
-              value={newTitle}
-              onChange={event => setNewTitle(event.target.value)}
-              placeholder="What do you need help with?"
-              className="w-full border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 rounded-xl px-3 py-3 text-sm outline-none"
-            />
-            <select
-              value={newGroup}
-              onChange={event => setNewGroup(event.target.value)}
-              className="w-full border border-slate-200 dark:border-brand-800 bg-slate-50 dark:bg-brand-950 rounded-xl px-3 py-3 text-sm outline-none"
-            >
-              {FAQ_GROUPS.map(group => <option key={group.id} value={group.id}>{group.title}</option>)}
-            </select>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowAskModal(false)} className="px-4 py-2 text-xs font-bold text-slate-500">Cancel</button>
-              <button disabled={creationLoading} type="submit" className="soft-primary px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-50">
-                {creationLoading ? 'Posting...' : 'Post question'}
+            
+            <div className="space-y-1">
+              <label className="block text-[9px] font-extrabold uppercase text-slate-450 tracking-wider">Your Query Title</label>
+              <input
+                autoFocus
+                required
+                maxLength={180}
+                value={newTitle}
+                onChange={event => setNewTitle(event.target.value)}
+                placeholder="e.g. NOC format required for internship portal?"
+                className="w-full px-3.5 py-3 rounded-xl text-xs outline-none"
+              />
+            </div>
+
+            {(duplicateLoading || duplicateMatches.length > 0) && (
+              <div className="rounded-2xl border border-amber-500/25 bg-amber-50 p-4 shadow-lg dark:border-amber-400/20 dark:bg-amber-400/10">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-300" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-200">
+                      Similar question found
+                    </p>
+                    {duplicateLoading ? (
+                      <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-300">Checking existing FAQs...</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {duplicateMatches.slice(0, 3).map(match => (
+                          <button
+                            type="button"
+                            key={match.thread._id}
+                            onClick={() => {
+                              setShowAskModal(false);
+                              if (match.thread.faqNumber) {
+                                const group = FAQ_GROUPS.find(item => item.categories.includes(match.thread.category));
+                                if (group) setSelectedGroup(group.id);
+                                setMode('official');
+                                window.location.hash = `faq-${match.thread.faqNumber}`;
+                                setTimeout(() => {
+                                  document.getElementById(`faq-${match.thread.faqNumber}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }, 100);
+                              } else {
+                                setSelectedThreadId(match.thread._id);
+                              }
+                            }}
+                            className="block w-full rounded-xl border border-amber-500/20 bg-white/85 px-3 py-2 text-left text-xs font-bold text-slate-700 shadow-sm transition hover:bg-white dark:bg-[#0b0c10]/70 dark:text-slate-200"
+                          >
+                            <span className="block text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                              Question {match.thread.faqNumber ? `#${match.thread.faqNumber}` : `#${String(match.thread._id).slice(-6)}`} · {Math.round(match.score * 100)}% match
+                            </span>
+                            <span className="mt-0.5 block line-clamp-2">{match.thread.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-1">
+              <label className="block text-[9px] font-extrabold uppercase text-slate-450 tracking-wider">Select Topic Folder</label>
+              <select
+                value={newGroup}
+                onChange={event => setNewGroup(event.target.value)}
+                className="w-full px-3.5 py-3 rounded-xl text-xs outline-none cursor-pointer"
+              >
+                {FAQ_GROUPS.map(group => <option key={group.id} value={group.id}>{group.title}</option>)}
+              </select>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+              <button 
+                type="button" 
+                onClick={() => setShowAskModal(false)} 
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                disabled={creationLoading} 
+                type="submit" 
+                className="soft-primary px-5 py-2.5 rounded-xl text-xs font-black shadow disabled:opacity-50 cursor-pointer"
+              >
+                {creationLoading ? 'Publishing...' : 'Submit Question'}
               </button>
             </div>
           </form>

@@ -331,9 +331,10 @@ router.post('/create', authMiddleware, async (req, res) => {
     const aiAnalysis = analyzeFAQ(title, body);
     const aiScores = scoreContentModeration(body, title);
 
-    let threadStatus = req.user.role === 'admin' ? 'active' : 'pending_review';
-    if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
-      threadStatus = 'flagged';
+    if (aiScores.toxicityScore >= 0.4 || aiScores.spamProbability >= 0.3) {
+      return res.status(400).json({
+        message: `Submission rejected: AI moderation flagged this content.\n\n${aiScores.flaggedReasons.join('\n')}`
+      });
     }
 
     const newThread = new FAQThread({
@@ -342,7 +343,7 @@ router.post('/create', authMiddleware, async (req, res) => {
       category,
       author: req.user._id,
       authorName: req.user.username,
-      status: threadStatus,
+      status: 'active',
       submittedForReviewAt: Date.now(),
       priority: aiAnalysis.priority,
       tags: aiAnalysis.tags,
@@ -360,8 +361,11 @@ router.post('/create', authMiddleware, async (req, res) => {
       const ts = new Date();
       await FAQTracker.create({
         threadId: newThread._id,
-        status: 'received',
-        steps: [{ status: 'received', label: 'Question Received', timestamp: ts }]
+        status: 'ai_analyzing',
+        steps: [
+          { status: 'received', label: 'Question Received', timestamp: ts },
+          { status: 'ai_analyzing', label: 'AI Analyzing', timestamp: ts }
+        ]
       });
     } catch (e) { console.error('Tracker create failed:', e.message); }
 
@@ -371,19 +375,11 @@ router.post('/create', authMiddleware, async (req, res) => {
       broadcastQueueUpdate(io);
     } catch (e) { console.error('Queue broadcast failed:', e.message); }
 
-    if (threadStatus === 'flagged') {
+    if (req.user.role !== 'admin') {
       const notif = new Notification({
         userId: req.user._id,
-        title: '⚠️ Thread Flagged for Review',
-        message: 'Your thread has been automatically flagged by our AI moderation system and is pending administrator review.',
-        type: 'verification'
-      });
-      await notif.save();
-    } else if (threadStatus === 'pending_review') {
-      const notif = new Notification({
-        userId: req.user._id,
-        title: 'FAQ Submitted for Review',
-        message: 'Your FAQ has been sent to the admin moderation queue and will publish after approval.',
+        title: '✅ FAQ Published',
+        message: 'Your FAQ has been verified by AI and published successfully.',
         type: 'verification'
       });
       await notif.save();
@@ -520,7 +516,14 @@ router.post('/:id/answers/create', authMiddleware, async (req, res) => {
 
     // AI moderation scoring
     const aiScores = scoreContentModeration(body);
-    let isSpam = aiScores.spamProbability >= 0.7;
+
+    if (aiScores.toxicityScore >= 0.4 || aiScores.spamProbability >= 0.3) {
+      return res.status(400).json({
+        message: `Answer rejected: AI moderation flagged this content.\n\n${aiScores.flaggedReasons.join('\n')}`
+      });
+    }
+
+    const isSpam = false;
 
     const newAnswer = new Answer({
       threadId: thread._id,
@@ -707,15 +710,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const aiScores = scoreContentModeration(body, title);
     const aiAnalysis = analyzeFAQ(title, body);
-    let threadStatus = req.user.role === 'admin' ? 'active' : 'pending_review';
-    if (aiScores.toxicityScore >= 0.6 || aiScores.spamProbability >= 0.7) {
-      threadStatus = 'flagged';
+
+    if (aiScores.toxicityScore >= 0.4 || aiScores.spamProbability >= 0.3) {
+      return res.status(400).json({
+        message: `Update rejected: AI moderation flagged this content.\n\n${aiScores.flaggedReasons.join('\n')}`
+      });
     }
 
     thread.title = title;
     thread.body = body;
     thread.category = category || thread.category;
-    thread.status = threadStatus;
+    thread.status = 'active';
     thread.submittedForReviewAt = Date.now();
     thread.reviewedBy = null;
     thread.reviewedAt = null;
@@ -791,6 +796,11 @@ router.put('/answers/:ansId', authMiddleware, async (req, res) => {
     if (!body) return res.status(400).json({ message: 'Answer content is required' });
 
     const aiScores = scoreContentModeration(body);
+    if (aiScores.toxicityScore >= 0.4 || aiScores.spamProbability >= 0.3) {
+      return res.status(400).json({
+        message: `Answer update rejected: AI moderation flagged this content.\n\n${aiScores.flaggedReasons.join('\n')}`
+      });
+    }
     answer.body = body;
     answer.aiScores = aiScores;
     await answer.save();

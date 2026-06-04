@@ -333,17 +333,20 @@ function scoreContentModeration(text, title = '') {
   const combinedText = `${title} ${text}`.toLowerCase();
   
   // Toxicity detection
-  const toxicWords = ['spammy', 'idiot', 'stupid', 'bastard', 'cheat', 'fuck', 'shit', 'scam', 'fraud', 'useless', 'garbage', 'crap'];
+  const toxicWords = ['spammy', 'idiot', 'stupid', 'bastard', 'cheat', 'fuck', 'shit', 'scam', 'fraud', 'useless', 'garbage', 'crap', 'wtf', 'moron'];
+  const tokens = combinedText.replace(/[^\w\s]/g, '').split(/\s+/);
   let toxicCount = 0;
+  const toxicWordsFound = [];
   toxicWords.forEach(word => {
-    if (combinedText.includes(word)) {
+    if (tokens.includes(word)) {
       toxicCount++;
+      toxicWordsFound.push(word);
     }
   });
   
   // CAPS LOCK filter increases toxicity slightly (represents shouting)
   const isCaps = text.length > 10 && text === text.toUpperCase();
-  const toxicityScore = Math.min(1.0, (toxicCount * 0.3) + (isCaps ? 0.2 : 0));
+  const toxicityScore = Math.min(1.0, (toxicCount * 0.4) + (isCaps ? 0.2 : 0));
   
   // Spam probability heuristics
   const repetitiveText = text.length > 20 && /(.)\1{4,}/.test(combinedText); // e.g. "aaaaa"
@@ -353,7 +356,7 @@ function scoreContentModeration(text, title = '') {
   const spamProbability = Math.min(1.0, 
     (repetitiveText ? 0.6 : 0) + 
     (excessiveLinks ? 0.3 : 0) + 
-    (isTooShort ? 0.4 : 0)
+    (isTooShort ? 0.2 : 0)
   );
 
   // Quality score: encourages well-written, longer texts, code-formatting, bullet points
@@ -369,12 +372,32 @@ function scoreContentModeration(text, title = '') {
     (spamProbability * 0.4)
   );
 
+  const flaggedReasons = [];
+  if (toxicityScore >= 0.4) {
+    let reason = `Toxicity score of ${(toxicityScore * 100).toFixed(0)}% exceeds the safety limit (40%).`;
+    if (toxicWordsFound.length > 0) {
+      reason += ` Flagged terms: ${toxicWordsFound.map(w => `"${w}"`).join(', ')}.`;
+    }
+    if (isCaps) {
+      reason += ` Excessive capitalized words (shouting pattern).`;
+    }
+    flaggedReasons.push(reason);
+  }
+  if (spamProbability >= 0.3) {
+    let spamDetails = [];
+    if (repetitiveText) spamDetails.push('repetitive character patterns');
+    if (excessiveLinks) spamDetails.push('too many external links');
+    if (isTooShort) spamDetails.push('text is too short (must be at least 3 words)');
+    flaggedReasons.push(`Spam probability of ${(spamProbability * 100).toFixed(0)}% exceeds the safety limit (30%). Triggered rules: ${spamDetails.join(', ') || 'suspicious activity'}.`);
+  }
+
   return {
     spamProbability: Math.round(spamProbability * 100) / 100,
     toxicityScore: Math.round(toxicityScore * 100) / 100,
     relevanceScore: 1.0, // base relevance, modified dynamically during RAG
     confidenceScore: Math.round((1 - toxicityScore) * 100) / 100,
-    qualityScore: Math.max(0.0, Math.round(qualityScore * 100) / 100)
+    qualityScore: Math.max(0.0, Math.round(qualityScore * 100) / 100),
+    flaggedReasons
   };
 }
 

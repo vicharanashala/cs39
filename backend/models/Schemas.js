@@ -85,6 +85,9 @@ const FAQThreadSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
+FAQThreadSchema.index({ status: 1, isMerged: 1, isOfficial: 1, updatedAt: -1 });
+FAQThreadSchema.index({ author: 1, status: 1, updatedAt: -1 });
+FAQThreadSchema.index({ faqSortKey: 1 });
 
 // 3. ANSWER SCHEMA
 const AnswerSchema = new Schema({
@@ -123,12 +126,17 @@ const NotificationSchema = new Schema({
   message: { type: String, required: true },
   type: { 
     type: String, 
-    enum: ['answer', 'sp_change', 'verification', 'reply', 'announcement', 'merge'], 
+    enum: ['answer', 'sp_change', 'verification', 'reply', 'announcement', 'merge', 'support'], 
     required: true 
   },
+  link: { type: String, default: '' },
+  metadata: { type: Schema.Types.Mixed, default: {} },
   isRead: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
+NotificationSchema.index({ userId: 1, createdAt: -1 });
+AnswerSchema.index({ threadId: 1, isVerified: 1, createdAt: -1 });
+AnswerSchema.index({ author: 1, createdAt: -1 });
 
 // 6. SP TRANSACTION SCHEMA
 const SPTransactionSchema = new Schema({
@@ -169,14 +177,41 @@ const SearchLogSchema = new Schema({
   source: { type: String, enum: ['faq_feed', 'search_bar', 'chatbot', 'ai_assist'], default: 'faq_feed' },
   createdAt: { type: Date, default: Date.now }
 });
+SearchLogSchema.index({ query: 1, createdAt: -1 });
+SearchLogSchema.index({ clickedThreadId: 1, createdAt: -1 });
+SearchLogSchema.index({ createdAt: -1, source: 1 });
 
 // 10. USER ACTIVITY SCHEMA — tracks user sessions & actions
 const UserActivitySchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  action: { type: String, enum: ['login', 'search', 'view_thread', 'post_answer', 'bookmark', 'upvote', 'ask_question'], required: true },
+  action: {
+    type: String,
+    enum: [
+      'login',
+      'search',
+      'view_thread',
+      'post_answer',
+      'bookmark',
+      'upvote',
+      'ask_question',
+      'view_update',
+      'update_tour',
+      'attendance_request',
+      'recorded_session_request',
+      'support_status_change',
+      'support_follow_up',
+      'support_reply',
+      'proof_requested',
+      'request_updated'
+    ],
+    required: true
+  },
   metadata: { type: Schema.Types.Mixed, default: {} }, // extra context (threadId, searchQuery, etc.)
   createdAt: { type: Date, default: Date.now }
 });
+UserActivitySchema.index({ userId: 1, createdAt: -1 });
+UserActivitySchema.index({ action: 1, createdAt: -1 });
+UserActivitySchema.index({ createdAt: -1, action: 1 });
 
 // 11. FEEDBACK SCHEMA — user feedback on answers
 const FeedbackSchema = new Schema({
@@ -188,6 +223,8 @@ const FeedbackSchema = new Schema({
   sentiment: { type: String, enum: ['positive', 'neutral', 'negative'], default: 'neutral' },
   createdAt: { type: Date, default: Date.now }
 });
+FeedbackSchema.index({ threadId: 1, createdAt: -1 });
+FeedbackSchema.index({ answerId: 1, userId: 1 });
 
 // 12. SYSTEM METRICS SCHEMA — uptime & performance snapshots
 const SystemMetricsSchema = new Schema({
@@ -199,6 +236,7 @@ const SystemMetricsSchema = new Schema({
   errorRate: { type: Number, default: 0 },
   uptimePercent: { type: Number, default: 100 }
 });
+SystemMetricsSchema.index({ timestamp: -1 });
 
 // 13. FAQ TRACKER — live status tracking per thread
 const FAQTrackerSchema = new Schema({
@@ -226,6 +264,103 @@ const FAQTrackerSchema = new Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+// 14. FAQ CHANGELOG - official FAQ updates and admin announcements
+const FAQChangeLogSchema = new Schema({
+  threadId: { type: Schema.Types.ObjectId, ref: 'FAQThread', default: null },
+  title: { type: String, required: true },
+  category: { type: String, default: 'Announcements' },
+  changeType: { type: String, enum: ['new', 'updated', 'important', 'announcement'], default: 'updated' },
+  oldContent: {
+    title: { type: String, default: '' },
+    body: { type: String, default: '' },
+    answer: { type: String, default: '' },
+    category: { type: String, default: '' }
+  },
+  newContent: {
+    title: { type: String, default: '' },
+    body: { type: String, default: '' },
+    answer: { type: String, default: '' },
+    category: { type: String, default: '' }
+  },
+  reason: { type: String, default: 'Official FAQ guidance was refreshed.' },
+  admin: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  adminName: { type: String, default: 'Admin' },
+  isPinned: { type: Boolean, default: false },
+  isPublished: { type: Boolean, default: true },
+  metrics: {
+    views: { type: Number, default: 0 },
+    explores: { type: Number, default: 0 },
+    bookmarks: { type: Number, default: 0 }
+  },
+  viewedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+FAQChangeLogSchema.index({ isPublished: 1, isPinned: -1, createdAt: -1 });
+
+// 15. SESSION SUPPORT REQUESTS — unable to attend session workflow
+const SessionSupportRequestSchema = new Schema({
+  studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  studentName: { type: String, required: true },
+  studentEmail: { type: String, required: true },
+  issueType: {
+    type: String,
+    enum: ['internet', 'camera', 'microphone', 'device', 'power', 'other'],
+    required: true
+  },
+  issueLabel: { type: String, required: true },
+  title: { type: String, required: true },
+  details: { type: String, required: true },
+  attemptedSteps: [{ type: String }],
+  status: {
+    type: String,
+    enum: ['Pending', 'In Review', 'Resolved', 'Rejected'],
+    default: 'Pending'
+  },
+  adminNote: { type: String, default: '' },
+  internalNotes: [{
+    note: { type: String, default: '' },
+    addedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    addedByName: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  resolutionSummary: { type: String, default: '' },
+  sessionAccessUrl: { type: String, default: '' },
+  followUps: [{
+    senderRole: { type: String, enum: ['admin', 'student'], required: true },
+    senderId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    senderName: { type: String, default: '' },
+    message: { type: String, required: true },
+    requestProof: { type: Boolean, default: false },
+    documents: [{
+      name: { type: String, default: '' },
+      url: { type: String, default: '' },
+      type: { type: String, default: '' }
+    }],
+    createdAt: { type: Date, default: Date.now }
+  }],
+  statusHistory: [{
+    status: {
+      type: String,
+      enum: ['Pending', 'In Review', 'Resolved', 'Rejected']
+    },
+    note: { type: String, default: '' },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    updatedByName: { type: String, default: '' },
+    timestamp: { type: Date, default: Date.now }
+  }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+SessionSupportRequestSchema.index({ studentId: 1, createdAt: -1 });
+SessionSupportRequestSchema.index({ status: 1, issueType: 1, updatedAt: -1 });
+
+// 16. SESSION SUPPORT GUIDANCE SCHEMA
+const AttendanceGuidanceSchema = new Schema({
+  issueType: { type: String, required: true, unique: true },
+  steps: [{ type: String }]
+});
+
 module.exports = {
   User: mongoose.model('User', UserSchema),
   FAQThread: mongoose.model('FAQThread', FAQThreadSchema),
@@ -239,5 +374,8 @@ module.exports = {
   UserActivity: mongoose.model('UserActivity', UserActivitySchema),
   Feedback: mongoose.model('Feedback', FeedbackSchema),
   SystemMetrics: mongoose.model('SystemMetrics', SystemMetricsSchema),
-  FAQTracker: mongoose.model('FAQTracker', FAQTrackerSchema)
+  FAQTracker: mongoose.model('FAQTracker', FAQTrackerSchema),
+  FAQChangeLog: mongoose.model('FAQChangeLog', FAQChangeLogSchema),
+  SessionSupportRequest: mongoose.model('SessionSupportRequest', SessionSupportRequestSchema),
+  AttendanceGuidance: mongoose.model('AttendanceGuidance', AttendanceGuidanceSchema)
 };

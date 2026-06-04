@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import api from '../utils/api';
+import Swal from 'sweetalert2';
 import { initSocket, disconnectSocket, onSPChange, onNewNotification } from '../utils/socket';
 
 const AppContext = createContext();
@@ -136,6 +137,46 @@ export const AppProvider = ({ children }) => {
     setTimeout(() => {
       setAlert(null);
     }, 4000);
+
+    const isDark = document.documentElement.classList.contains('dark');
+    const isToast = ['success', 'info'].includes(type);
+    
+    let icon = 'info';
+    if (type === 'success') icon = 'success';
+    else if (type === 'error' || type === 'verification') icon = 'error';
+    else if (type === 'warning') icon = 'warning';
+
+    if (isToast) {
+      const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        background: isDark ? '#0f1117' : '#ffffff',
+        color: isDark ? '#f1f5f9' : '#0f172a',
+        didOpen: (toast) => {
+          toast.onmouseenter = Swal.stopTimer;
+          toast.onmouseleave = Swal.resumeTimer;
+        }
+      });
+      Toast.fire({
+        icon: icon,
+        title: message
+      });
+    } else {
+      Swal.fire({
+        icon: icon,
+        title: type === 'verification' ? 'AI Verification Alert' : type.charAt(0).toUpperCase() + type.slice(1),
+        text: message,
+        background: isDark ? '#0f1117' : '#ffffff',
+        color: isDark ? '#f1f5f9' : '#0f172a',
+        confirmButtonColor: '#6366F1',
+        customClass: {
+          popup: 'rounded-3xl border border-slate-200/50 dark:border-white/5 shadow-2xl'
+        }
+      });
+    }
   };
 
   const toggleBookmark = useCallback(async (threadId, threadData = null) => {

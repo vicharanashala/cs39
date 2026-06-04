@@ -20,9 +20,9 @@ const Config = {
   // Threads with similarity score >= this threshold are blocked as duplicates
   DUPLICATE_SIMILARITY_THRESHOLD: 0.45,
   // Content with toxicity score >= this is auto-flagged
-  TOXICITY_FLAG_THRESHOLD: 0.6,
+  TOXICITY_FLAG_THRESHOLD: 0.4,
   // Content with spam probability >= this is auto-flagged
-  SPAM_FLAG_THRESHOLD: 0.7,
+  SPAM_FLAG_THRESHOLD: 0.3,
 
   // ── Queue ───────────────────────────────────────────────────────────────────
   // Sort options available in the admin pending queue panel

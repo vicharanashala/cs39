@@ -9,6 +9,9 @@ import ThreadDetail from './pages/ThreadDetail';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
+import AttendanceSupport from './pages/AttendanceSupport';
+import WhatsNew from './pages/WhatsNew';
+import UserActivityTracking from './pages/UserActivityTracking';
 import { X } from 'lucide-react';
 
 const AppContent = () => {
@@ -54,6 +57,12 @@ const AppContent = () => {
         return <Analytics />;
       case 'profile':
         return <Profile />;
+      case 'attendance':
+        return <AttendanceSupport />;
+      case 'updates':
+        return <WhatsNew />;
+      case 'user-activity':
+        return <UserActivityTracking />;
       default:
         return <FAQFeed />;
     }
@@ -95,7 +104,7 @@ const AppContent = () => {
         />
         
         {/* Simple Notification Banner */}
-        {alert && (
+        {false && (
           <div className={`w-full px-6 py-2.5 text-center text-xs font-bold text-white transition-all shadow-sm ${
             alert.type === 'success' ? 'bg-emerald-500' : alert.type === 'error' ? 'bg-rose-500' : 'bg-brand-500'
           }`}>

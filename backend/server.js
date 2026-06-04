@@ -26,6 +26,8 @@ const notificationRoutes = require('./routes/notifications');
 const leaderboardRoutes = require('./routes/leaderboard');
 const bookmarkRoutes = require('./routes/bookmarks');
 const trackRoutes = require('./routes/track');
+const updateRoutes = require('./routes/updates');
+const sessionSupportRoutes = require('./routes/sessionSupport');
 
 const app = express();
 const server = http.createServer(app);
@@ -80,6 +82,7 @@ io.on('connection', (socket) => {
   if (socket.userId) {
     socket.join(socket.userId);
     socket.join(`user_${socket.userId}`);
+    socket.join(`role_${socket.userRole}`);
     console.log(`[Socket.IO] User ${socket.userId} connected (role: ${socket.userRole})`);
   } else {
     console.log('[Socket.IO] Anonymous client connected');
@@ -116,7 +119,7 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use('/api', createRateLimiter({
   windowMs: cfg.RATE_LIMIT_WINDOW_MS,
   maxRequests: cfg.RATE_LIMIT_MAX_REQUESTS,
@@ -141,13 +144,14 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/track', trackRoutes);
+app.use('/api/updates', updateRoutes);
+app.use('/api/session-support', sessionSupportRoutes);
 
 // Database Seeding Logic
 const seedDatabase = async () => {
   try {
     const userCount = await User.countDocuments();
     if (userCount > 0) {
-      console.log('[Seeding] Database already has data. Skipping seed.');
       return;
     }
 
@@ -397,13 +401,11 @@ const ensureDemoAccounts = async () => {
     }
     await User.create(account);
   }
-
-  console.log('[Seeding] Local demo login accounts are ready.');
 };
 
 // Connect to Database and start server
 const PORT = cfg.PORT;
-const { seedOfficialFAQs } = require('./seedFAQs');
+const seedOfficialFAQs = require('./seedFAQs');
 function validateConfiguration() {
   const missing = ['MONGODB_URI', 'JWT_SECRET'].filter(key => !cfg[key]);
   if (missing.length > 0) {
@@ -436,23 +438,21 @@ app.use((error, req, res, next) => {
 async function startServer() {
   validateConfiguration();
   await connectDB();
+  await seedDatabase();
 
   // Only seed the real MongoDB database if Mongoose has successfully connected
-  let faqSeedEnabled = false;
+  const faqSeedEnabled = cfg.ENABLE_FAQ_SEED;
   if (mongoose.connection && mongoose.connection.readyState === 1) {
     if (cfg.ENABLE_DEMO_SEED) {
       await ensureDemoAccounts();
     }
     if (faqSeedEnabled) {
-      seedOfficialFAQs();
+      await seedOfficialFAQs();
     }
   }
 
   server.listen(PORT, () => {
     console.log(`[Server] Express + Socket.IO backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
-    if (faqSeedEnabled) {
-      seedOfficialFAQs();
-    }
   });
 }
 

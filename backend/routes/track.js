@@ -116,16 +116,21 @@ router.put('/:threadId/status', authMiddleware, async (req, res) => {
         return res.status(400).json({ message: 'Cannot revert status. Forward progression only.' });
       }
 
+      const ts = new Date();
       const stepInfo = STATUS_STEPS.find(s => s.status === status);
-      tracker.steps.push({
-        status,
-        label: stepInfo.label,
-        timestamp: new Date(),
-        note: note || ''
+      STATUS_STEPS.slice(0, nextIdx + 1).forEach(step => {
+        if (!tracker.steps.find(existing => existing.status === step.status)) {
+          tracker.steps.push({
+            status: step.status,
+            label: step.label,
+            timestamp: ts,
+            note: step.status === status ? (note || '') : ''
+          });
+        }
       });
       tracker.status = status;
-      tracker.updatedAt = new Date();
-      if (status === 'completed') tracker.completedAt = new Date();
+      tracker.updatedAt = ts;
+      if (status === 'completed') tracker.completedAt = ts;
       await tracker.save();
     }
 

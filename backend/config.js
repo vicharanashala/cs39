@@ -21,8 +21,8 @@ module.exports = {
 
   // ── AI / Moderation ─────────────────────────────────────────────────────────
   SIMILARITY_THRESHOLD: parseFloat(process.env.SIMILARITY_THRESHOLD) || 0.45,
-  TOXICITY_FLAG_THRESHOLD: 0.6,
-  SPAM_FLAG_THRESHOLD: 0.7,
+  TOXICITY_FLAG_THRESHOLD: 0.4,
+  SPAM_FLAG_THRESHOLD: 0.3,
 
   // ── Rate Limiting ───────────────────────────────────────────────────────────
   RATE_LIMIT_WINDOW_MS: 60 * 1000,     // 1 minute
@@ -32,5 +32,5 @@ module.exports = {
   // Enable demo account seeding in development (always true unless explicitly disabled)
   ENABLE_DEMO_SEED: process.env.ENABLE_DEMO_SEED !== 'false',
   // Enable FAQ seeding (127 official FAQs)
-  ENABLE_FAQ_SEED: process.env.ENABLE_FAQ_SEED === 'true',
+  ENABLE_FAQ_SEED: process.env.ENABLE_FAQ_SEED !== 'false',
 };

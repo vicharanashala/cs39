@@ -56,8 +56,9 @@ C:\Users\Lenovo\Desktop\Prototype\
 ### Frontend
 | File | Purpose |
 |------|---------|
-| `FAQFeed.jsx` | Main FAQ list, search with smart/paraphrase toggle, TTS widget inline, answer expansion with TTS button |
+| `FAQFeed.jsx` | Main FAQ list, search with smart/paraphrase toggle, TTS widget inline, answer expansion with TTS button. Includes a theme-responsive Trending FAQ section. |
 | `ThreadDetail.jsx` | Full thread view, answers, comments, upvotes, admin verify, AI analysis panel |
+| `WhatsNew.jsx` | Main "What's New" page showing change logs, announcements, and important updates with a responsive, light/dark theme-consistent design. |
 | `Analytics.jsx` | 6-tab admin analytics — Overview, Most Searched, User Activity, Feedback, Trending, System |
 | `TTSButton.jsx` | Reusable TTS component — Wit.ai API (POST JSON, voice=wit$Rebecca) or browser SpeechSynthesis fallback |
 
@@ -163,6 +164,48 @@ Track each FAQ thread through a lifecycle: `received` → `ai_analyzing` → `ex
 
 ---
 
+## Attendance Support (Unable to Attend Session)
+### Concept
+A workspace for students to request support or recorded class session access when technical or local physical issues prevent attendance.
+
+### Backend Routing & Controller (`routes/sessionSupport.js`)
+- `GET /troubleshoot/:issueType` - Fetch dynamic troubleshooting steps for category (seeds from `ISSUE_CONFIGS` defaults if not present in DB).
+- `GET /guidance` - Retrieve all guidance categories and steps for management (admin only).
+- `PUT /guidance/:issueType` - Save updated steps for a specific category (admin only).
+- `GET /` - List requests for student (only own requests) or admin (all requests with query filters and pagination).
+- `POST /` - Create support request.
+- `PATCH /:id/status` - Update request status/details, push internal note/follow-ups, save to audit history (admin only).
+- `PUT /:id` - Edit request details (admin only).
+- `POST /:id/follow-up` - Append message/documents to conversation log between student and admin.
+- `GET /stats/summary` - Fetch analytics stats (admin only).
+
+### Database Schemas (`models/Schemas.js`)
+- `SessionSupportRequest`: Stores student identity, issue category, title, details, attemptedSteps, status (Pending, In Review, Resolved, Rejected), adminNote, internalNotes (admin-only), followUps (comments with attachment links), and statusHistory (audits).
+- `AttendanceGuidance`: Stores dynamic troubleshooting checklist steps per `issueType`.
+
+### Frontend Components (`UnableToAttendSession.jsx`)
+- **Student Layout**:
+  - `Report New Issue` Tab: Progressive disclosure wizard where students select an issue card (WiFi, Camera, Microphone, Device, Power, or Other), which gets highlighted. Students check the troubleshooting steps loaded dynamically. After acknowledging completion, the request form unlocks.
+  - `My Tickets` Tab: Historical tickets list with expandable thread details, conversation flow, proof upload files, status progress, and links to recorded sessions.
+  - `Ticket Inbox` Tab: Queue of all student cases with status filters, text search parameters, paging navigation, status workflow actions, and admin note workspaces. Includes client-side **Export CSV** and **Export PDF** options to download the currently filtered inbox list.
+  - `Support Analytics` Tab: Telemetry dashboard displaying case totals and volumes dynamically.
+  - `Manage Checklists` Tab: Panel to add, edit, or delete dynamic troubleshooting checklist steps and sync changes to MongoDB.
+
+---
+
+## AI Content Moderation
+### Concept
+Real-time AI moderation checks are integrated into content creation to ensure a safe community environment.
+
+### Flow
+- When a user submits a thread or answer (`routes/threads.js`), the content is sent to `aiService.js:scoreContentModeration`.
+- If toxic language or spam indicators exceed threshold values, the request is blocked before database insertion.
+- The server responds with a flagged warning and detailed reason in JSON.
+- The frontend shows a sweetalert popup displaying the moderation warning detail inline.
+
+---
+
 ## Context Exhaustion Plan
 If tokens run out, read this file + the relevant SKILL.md files before continuing work.
 Keep this file updated after every significant feature addition.
+
